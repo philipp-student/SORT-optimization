@@ -1,3 +1,4 @@
 output/
 .vscode/
 mot_benchmark
+__pycache__/
