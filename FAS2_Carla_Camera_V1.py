@@ -20,13 +20,26 @@ import random
 # Importing numpy for data processing and cv2 for image visualization
 import numpy as np
 import cv2
+import time
 
 # Properties of the image being created by the camera
-IMAGE_WIDTH = 1920
-IMAGE_HEIGHT = 1080
+IMAGE_WIDTH = 640 #1920
+IMAGE_HEIGHT = 480 #1080
+
+CURRENT_TIME = 0
+LAST_TIME = 0
+
 
 # Function that is being called whenever data from the camera is recieved
 def process_img(image):
+
+    global CURRENT_TIME
+    global LAST_TIME
+
+    CURRENT_TIME = time.time()
+    print(image.frame, CURRENT_TIME - LAST_TIME)
+    LAST_TIME = CURRENT_TIME
+
     # Store the raw image data into numpy array
     i = np.array(image.raw_data)
 
@@ -36,15 +49,17 @@ def process_img(image):
     # Extract only RGB from RGBA data -> Discart alpha channel
     i = i[:, :, :3] #select entire height, entire width, only first 3 channels (rgb)
 
-    print(i)
+    # Printing shape of image data
+    #print(i) 
 
     # Display image with openCV
-    cv2.imshow("", i)
-    cv2.waitKey(1)
+    #cv2.imshow("", i)
+    #cv2.waitKey(1)
 
     # Saving image to disk - Very slow!
     #image.save_to_disk('~/tutorial/output/%.6d.jpg' % image.frame)
 
+    
     # Returning image data, but normalized (0 <= value <= 1)
     return i/255.0
 
@@ -188,4 +203,4 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         pass
     finally:
-        print('\nDone with tutorial_ego.')
+        print('\nEnded FAS Camera Script.')
