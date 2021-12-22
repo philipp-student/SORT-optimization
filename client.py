@@ -5,28 +5,36 @@ from carla_camera_frame import CARLA_Camera_Frame
 
 HOST = 'localhost'
 PORT = 50007
+PRINT_EVERY = 100
 
-# Create a TCP socket connection.
+# Create a TCP socket connections to the server.
 s = socket.create_connection((HOST, PORT))
+print("Client started. Press Ctrl-C to stop...")
 
-# Load image.
-image = Image.open('./img/test_image.jpg')
+try:
+    # Receive data continously.
+    count = 0
+    while True:
+        
+        # Retrieve data.
+        data = s.recv(822001)
 
-# Convert to numpy array.
-image = np.array(image)
+        if not data:
+            print("Data is empty")
+            break
+        else:        
+            count += 1
+            
+            # Print receival of frame. 
+            if (count % PRINT_EVERY == 0):       
+                print("Received frame no. {0}".format(count))
+            
+            # Unpickle data.
+            data_variable = pickle.loads(data)
+except KeyboardInterrupt:
+    print("Stopping client...")
+    
+    # Close the socket.
+    s.close()
 
-# Create an instance of the class.
-variable = CARLA_Camera_Frame(image, 100)
-
-# Pickle the object.
-data_string = pickle.dumps(variable)
-length = len(data_string)
-
-# Send the data to the server.
-for i in range(10):    
-    s.send(data_string)
-
-input('Data Sent to Server. Press enter to exit.')
-
-# Close the socket.
-s.close()
+input('Client stopped successfully. Press enter to exit...')
