@@ -3,9 +3,26 @@ import threading
 from PIL import Image
 import numpy as np
 from carla_camera_frame import CARLA_Camera_Frame
+import struct
 
 HOST = 'localhost'
 PORT = 50007
+
+# Load image.
+image = Image.open('./img/test_image.jpg')
+
+# Convert to numpy array.
+TEST_IMAGE = np.array(image)
+
+def send_frame(client_connection, frame):
+    # Serialize frame.
+    frame_serialized = pickle.dumps(frame)
+    
+    # Prefix serialized frame with length.
+    frame_serialized = struct.pack('>I', len(frame_serialized)) + frame_serialized
+    
+    # Send frame.
+    client_connection.sendall(frame_serialized)
 
 # Holds the connected clients.
 connected_clients = []
@@ -26,23 +43,13 @@ def inform_clients():
         
         # If there are any clients connected, send the given frame to all of them.
         if len(connected_clients) != 0:
-            for index_current_client, current_client_info in enumerate(connected_clients):
-                # Load image.
-                image = Image.open('./img/test_image.jpg')
-
-                # Convert to numpy array.
-                image = np.array(image)
-
+            for index_current_client, current_client_info in enumerate(connected_clients):                
                 # Create an instance of the class.
-                variable = CARLA_Camera_Frame(image, 100)
-
-                # Pickle the object.
-                data_string = pickle.dumps(variable)
-                length = len(data_string)
+                variable = CARLA_Camera_Frame(TEST_IMAGE, 100)
 
                 try:
                     # Send the data to the client.
-                    current_client_info[0].send(data_string)
+                    send_frame(current_client_info[0], variable)
                 except ConnectionAbortedError:
                     print("Client {0} disconnected. (ABORT)".format(current_client_info[1]))
                     
