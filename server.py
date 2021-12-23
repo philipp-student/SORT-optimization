@@ -4,13 +4,15 @@ from PIL import Image
 import numpy as np
 from carla_camera_frame import CARLA_Camera_Frame
 import struct
+import queue
 
 HOST = 'localhost'
 PORT = 50007
 
+BLOCKING_TIMEOUT = 1
+
 # Load image.
 image = Image.open('./img/test_image.jpg')
-
 # Convert to numpy array.
 TEST_IMAGE = np.array(image)
 
@@ -33,11 +35,20 @@ clients_lock = threading.Lock()
 # To cancel the informer thread.
 thread_cancellation_requested = False
 
-# Thread function that send the received frame to all connected clients.
+frame_queue = queue.Queue()
+
+# Thread function that sends the received frame to all connected clients.
 def inform_clients():
-    while(not thread_cancellation_requested):
-        
+    while(not thread_cancellation_requested):                        
         to_remove = []
+        frame = None
+        
+        try:
+            # Try to get a frame from the frame queue.
+            frame = frame_queue.get(timeout=BLOCKING_TIMEOUT)
+        except queue.Empty:
+            # Timeout was reached, no frame currently available.
+            continue            
         
         clients_lock.acquire()
         

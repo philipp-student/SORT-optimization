@@ -22,6 +22,15 @@ import numpy as np
 import cv2
 import time
 
+import queue
+from carla_camera_frame import CARLA_Camera_Frame
+from PIL import Image
+import threading
+import socket
+from time import sleep
+import pickle
+import struct
+
 # Properties of the image being created by the camera
 IMAGE_WIDTH = 640 #1920
 IMAGE_HEIGHT = 480 #1080
@@ -29,41 +38,119 @@ IMAGE_HEIGHT = 480 #1080
 CURRENT_TIME = 0
 LAST_TIME = 0
 
+FRAME_QUEUE = queue.Queue()
 
+HOST = 'localhost'
+PORT = 50007
+
+# Open server socket and listen.
+SERVER_SOCKET = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+SERVER_SOCKET.bind((HOST, PORT))
+SERVER_SOCKET.setblocking(False)
+SERVER_SOCKET.listen(1)
+print("Listening on port", PORT, "...")
+
+# Synchronizes the access to the connected clients.
+CLIENTS_LOCK = threading.Lock()
+# Holds the connected clients.
+CONNECTED_CLIENTS = []
+
+def send_frame(client_connection, frame):
+    # Serialize frame.
+    frame_serialized = pickle.dumps(frame)
+    
+    # Prefix serialized frame with length.
+    frame_serialized = struct.pack('>I', len(frame_serialized)) + frame_serialized
+    
+    # Send frame.
+    client_connection.sendall(frame_serialized)
+
+FRAME_BROADCASTING_THREAD_CANCELLATION_REQUESTED = False
+BLOCKING_TIMEOUT = 1
+def broadcast_frame():
+    while(not FRAME_BROADCASTING_THREAD_CANCELLATION_REQUESTED):                        
+        to_remove = []
+        frame = None
+        
+        try:
+            # Try to get a frame from the frame queue.
+            frame = FRAME_QUEUE.get(timeout=BLOCKING_TIMEOUT)
+        except queue.Empty:
+            print("No frame in queue available")
+            # Timeout was reached, no frame currently available.
+            continue            
+        
+        CLIENTS_LOCK.acquire()
+        
+        # If there are any clients connected, send the given frame to all of them.
+        if len(CONNECTED_CLIENTS) != 0:
+            for index_current_client, current_client_info in enumerate(CONNECTED_CLIENTS):                
+
+                try:
+                    # Send the data to the client.
+                    send_frame(current_client_info[0], frame)
+                except ConnectionAbortedError:
+                    print("Client {0} disconnected. (ABORT)".format(current_client_info[1]))
+                    
+                    # Mark client to be removed.
+                    to_remove.append(index_current_client)
+                except ConnectionResetError:    
+                    print("Client {0} disconnected. (RESET)".format(current_client_info[1]))
+                    
+                    # Mark client to be removed.
+                    to_remove.append(index_current_client)
+                                    
+        # Remove clients if any are marked.
+        for _, index_client_to_remove in enumerate(to_remove):
+            CONNECTED_CLIENTS.pop(index_client_to_remove)
+
+        CLIENTS_LOCK.release() 
+
+FRAME_BROADCASTING_THREAD = threading.Thread(target=broadcast_frame)
+
+CLIENT_HANDLING_THREAD_CANCELLATION_REQUESTED = False
+def handle_client_connections():
+    while(not CLIENT_HANDLING_THREAD_CANCELLATION_REQUESTED):
+        
+        client_info = None
+        
+        try:
+            # Wait for a client to connect.
+            client_info = SERVER_SOCKET.accept()
+            print ('Client connected: ', client_info[1])
+        except:
+            sleep(1)
+            continue
+        
+        # Save client.
+        CLIENTS_LOCK.acquire()
+        CONNECTED_CLIENTS.append(client_info)
+        CLIENTS_LOCK.release()
+
+CLIENT_HANDLING_THREAD = threading.Thread(target=handle_client_connections)
+
+frame_counter = 0
 # Function that is being called whenever data from the camera is recieved
 def process_img(image):
-
-    global CURRENT_TIME
-    global LAST_TIME
-
-    CURRENT_TIME = time.time()
-    print(image.frame, CURRENT_TIME - LAST_TIME)
-    LAST_TIME = CURRENT_TIME
-
+    
+    global frame_counter
+    frame_counter += 1
+    print("Received frame no. {0}".format(frame_counter))
+    
     # Store the raw image data into numpy array
-    i = np.array(image.raw_data)
+    frame = np.array(image.raw_data)
 
     # Original shape is a flat vector (1228800,) -> Reshape to get different channels (RGBA)
-    i = i.reshape((IMAGE_HEIGHT, IMAGE_WIDTH, 4))
+    frame = frame.reshape((IMAGE_HEIGHT, IMAGE_WIDTH, 4))
 
-    # Extract only RGB from RGBA data -> Discart alpha channel
-    i = i[:, :, :3] #select entire height, entire width, only first 3 channels (rgb)
+    # Extract only RGB from RGBA data -> Discard alpha channel
+    frame = frame[:, :, :3]
 
-    # Printing shape of image data
-    #print(i) 
-
-    # Display image with openCV
-    #cv2.imshow("", i)
-    #cv2.waitKey(1)
-
-    # Saving image to disk - Very slow!
-    #image.save_to_disk('~/tutorial/output/%.6d.jpg' % image.frame)
-
+    # Instantiate a frame object.
+    frame_object = CARLA_Camera_Frame(frame, image.frame)
     
-    # Returning image data, but normalized (0 <= value <= 1)
-    return i/255.0
-
-
+    # Queue frame object.
+    FRAME_QUEUE.put(frame_object)
 
 def main():
     # Arguments for the script to connect to carla server
@@ -146,8 +233,6 @@ def main():
         # register function that is called whenever data from the camera is recieved
         ego_cam.listen(lambda data: process_img(data))
    
-
-
         # --------------
         # Place spectator in Unreal editor on ego spawning
         # --------------
@@ -163,7 +248,12 @@ def main():
         
         ego_vehicle.set_autopilot(True)
        
-
+        # --------------
+        # Start required threads.
+        # --------------
+        CLIENT_HANDLING_THREAD.start()
+        FRAME_BROADCASTING_THREAD.start()        
+       
         # --------------
         # Game loop. Prevents the script from finishing.
         # --------------
@@ -201,6 +291,13 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        pass
+        # Request cancellation of threads.
+        FRAME_BROADCASTING_THREAD_CANCELLATION_REQUESTED = True
+        CLIENT_HANDLING_THREAD_CANCELLATION_REQUESTED = True
+        
+        # Wait for threads to end execution.
+        FRAME_BROADCASTING_THREAD.join()
+        CLIENT_HANDLING_THREAD.join()
+
     finally:
         print('\nEnded FAS Camera Script.')

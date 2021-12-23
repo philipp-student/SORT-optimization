@@ -6,7 +6,7 @@ import struct
 
 HOST = 'localhost'
 PORT = 50007
-PRINT_EVERY = 100
+PRINT_EVERY = 1
 
 def receive_frame(server_connection):
     raw_length = receive_n(server_connection, 4)
@@ -33,7 +33,6 @@ def receive_n(server_connection, n):
         data.extend(packet)
         
     return data
-    
 
 # Create a TCP socket connections to the server.
 s = socket.create_connection((HOST, PORT))
