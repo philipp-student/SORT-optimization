@@ -28,7 +28,7 @@ model_type = 'yolov5s'
 model = torch.hub.load('ultralytics/yolov5', model_type, pretrained=True)
 
 # Load images.
-img_path = './img/test_image.jpg'
+img_path = './img/2.jpg'
 img = cv2.imread(img_path)
 width = img.shape[1]
 height = img.shape[0]
@@ -42,21 +42,22 @@ results = results.xyxyn[0]
 # Get number of total detections.
 num_detections = results.size(0)
 
-# Get coordinates of all detected pedestrians.
-detected_pedestrians = torch.zeros([num_detections, 5], dtype=torch.float)
-for i in range(num_detections):
-    if results[i, 5] == 0:
-        detected_pedestrians[i, :] = results[i, :5]
+if (num_detections != 0):    
+    # Get coordinates of all detected pedestrians.
+    detected_pedestrians = torch.zeros([num_detections, 5], dtype=torch.float)
+    for i in range(num_detections):
+        if results[i, 5] == 0:
+            detected_pedestrians[i, :] = results[i, :5]
 
-# Draw bounding box around each detected pedestrian.        
-num_pedestrians = detected_pedestrians.size(0)
-for i in range(num_pedestrians):
-    # Get coordinates of bounding box.
-    pedestrian = detected_pedestrians[i, :].numpy()    
-    
-    # Plot bounding box.
-    img = plot_box(img, pedestrian, width, height)
+    # Draw bounding box around each detected pedestrian.        
+    num_pedestrians = detected_pedestrians.size(0)
+    for i in range(num_pedestrians):
+        # Get coordinates of bounding box.
+        pedestrian = detected_pedestrians[i, :].numpy()    
+        
+        # Plot bounding box.
+        img = plot_box(img, pedestrian, width, height)
 
-# Display image.
-cv2.imshow('image', img)
-cv2.waitKey(0)
+    # Display image.
+    cv2.imshow('image', img)
+    cv2.waitKey(0)
