@@ -397,7 +397,8 @@ def parse_args():
 if __name__ == '__main__':
   # Parse command line arguments.
   args = parse_args()
-  display = args.display
+  #display = args.display
+  display = True
   phase = args.phase
   
   # Set some variables.

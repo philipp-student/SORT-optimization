@@ -2,3 +2,4 @@ output/
 .vscode/
 mot_benchmark
 __pycache__/
+*.pt
