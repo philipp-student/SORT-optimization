@@ -38,21 +38,22 @@ def norm2img(xyxy, width, height):
 
 # Plots a bounding box on the given image.
 def plot_box(img, bounding_box_xyxy, color=(255, 0, 0), thickness=2):        
-    # Compute actual image coordinates of starting and end points.
-    bounding_box_xyxy = norm2img(bounding_box_xyxy, img.shape[1], img.shape[0])
-    
     # Plot rectangle in image.
     return cv2.rectangle(img, (int(bounding_box_xyxy[0]), int(bounding_box_xyxy[1])), (int(bounding_box_xyxy[2]), int(bounding_box_xyxy[3])), color, thickness)
 
 # Draws bounding boxes onto an image and displays it.
-def display_bounding_boxes(img, bounding_boxes):
+def display_bounding_boxes(img, bounding_boxes, normalized=True):
     if bounding_boxes is None: return
     
     # Draw each bounding box on image.
     num_boxes = bounding_boxes.size(0)
-    for i in range(num_boxes):
+    for i in range(num_boxes):        
         # Get coordinates of bounding box.
-        bounding_box = bounding_boxes[i, :].numpy()    
+        bounding_box = bounding_boxes[i].numpy()
+        
+        # Compute explicit coordinates if they are normalized.
+        if normalized:
+            bounding_box = norm2img(bounding_box, img.shape[1], img.shape[0])
         
         # Plot bounding box.
         img = plot_box(img, bounding_box)
