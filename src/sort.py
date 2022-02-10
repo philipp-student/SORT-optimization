@@ -39,20 +39,64 @@ def iou_batch(bb_test, bb_gt):
   
   # Computes the Intersection-Over-Union value between two bounding boxes of shape [x1 y1 x2 y2].
   
+  # Expand dimensions.
   bb_gt = np.expand_dims(bb_gt, 0)
   bb_test = np.expand_dims(bb_test, 1)
   
-  xx1 = np.maximum(bb_test[..., 0], bb_gt[..., 0])
-  yy1 = np.maximum(bb_test[..., 1], bb_gt[..., 1])
-  xx2 = np.minimum(bb_test[..., 2], bb_gt[..., 2])
-  yy2 = np.minimum(bb_test[..., 3], bb_gt[..., 3])
-  w = np.maximum(0., xx2 - xx1)
-  h = np.maximum(0., yy2 - yy1)
-  wh = w * h
-  o = wh / ((bb_test[..., 2] - bb_test[..., 0]) * (bb_test[..., 3] - bb_test[..., 1])                                      
-    + (bb_gt[..., 2] - bb_gt[..., 0]) * (bb_gt[..., 3] - bb_gt[..., 1]) - wh)                                              
-  return(o)  
+  # Compute intersection of test and groundtruth box.
+  x1_intersection = np.maximum(bb_test[..., 0], bb_gt[..., 0])
+  y1_intersection = np.maximum(bb_test[..., 1], bb_gt[..., 1])
+  x2_intersection = np.minimum(bb_test[..., 2], bb_gt[..., 2])
+  y2_intersection = np.minimum(bb_test[..., 3], bb_gt[..., 3])
+  w_intersection = np.maximum(0., x2_intersection - x1_intersection)
+  h_intersection = np.maximum(0., y2_intersection - y1_intersection)
+  intersection = w_intersection * h_intersection
+  
+  # Compute union of test and groundtruth box.
+  w_test = bb_test[..., 2] - bb_test[..., 0]
+  h_test = bb_test[..., 3] - bb_test[..., 1]
+  area_test = w_test * h_test
+  w_gt = bb_gt[..., 2] - bb_gt[..., 0]
+  h_gt = bb_gt[..., 3] - bb_gt[..., 1]
+  area_gt = w_gt * h_gt
+  union = area_test + (area_gt - intersection)
+  
+  # Compute IOU.
+  iou = intersection / union                                        
+  
+  return (iou)  
 
+
+def f1_batch(bb_test, bb_gt):
+  
+  # Expand dimensions.
+  bb_gt = np.expand_dims(bb_gt, 0)
+  bb_test = np.expand_dims(bb_test, 1)
+  
+  # Compute intersection of test and groundtruth box.
+  x1_intersection = np.maximum(bb_test[..., 0], bb_gt[..., 0])
+  y1_intersection = np.maximum(bb_test[..., 1], bb_gt[..., 1])
+  x2_intersection = np.minimum(bb_test[..., 2], bb_gt[..., 2])
+  y2_intersection = np.minimum(bb_test[..., 3], bb_gt[..., 3])
+  w_intersection = np.maximum(0., x2_intersection - x1_intersection)
+  h_intersection = np.maximum(0., y2_intersection - y1_intersection)
+  intersection = w_intersection * h_intersection
+  
+  # Compute area of test box.
+  w_test = bb_test[..., 2] - bb_test[..., 0]
+  h_test = bb_test[..., 3] - bb_test[..., 1]
+  area_test = w_test * h_test
+  
+  # Compute area of groundtruth box.
+  w_gt = bb_gt[..., 2] - bb_gt[..., 0]
+  h_gt = bb_gt[..., 3] - bb_gt[..., 1]
+  area_gt = w_gt * h_gt
+  
+  # Compute F1-measure.
+  f1 = 2 * intersection / (area_gt + area_test)
+  
+  return (f1)
+  
 
 def convert_bbox_to_z(bbox):
   """
@@ -194,7 +238,7 @@ class KalmanBoxTracker(object):
     return convert_x_to_bbox(self.kf.x)
 
 
-def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.3):
+def associate_detections_to_trackers(detections, trackers, cost_type, cost_threshold):
   """
   Assigns detections to tracked object (both represented as bounding boxes)
 
@@ -204,16 +248,20 @@ def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.3):
   if(len(trackers)==0):
     return np.empty((0,2),dtype=int), np.arange(len(detections)), np.empty((0,5),dtype=int)
 
-  # Compute IOU between each given detection and tracker. A matrix of shape MxN is returned
+  # Compute costs between each given detection and tracker using the given cost type. A matrix of shape MxN is returned
   # where M denotes the number of detections and N the number of trackers. Therefore, each 
-  # combination of a detection and a tracker is considered and their IOU is computed.
-  iou_matrix = iou_batch(detections, trackers)
+  # combination of a detection and a tracker is considered and their costs are computed.
+  switcher = {
+    'iou' : iou_batch(detections, trackers),
+    'f1' : f1_batch(detections, trackers)
+  }
+  cost_matrix = switcher.get(cost_type)
 
-  # Check whether any IOUs were computed.
-  if min(iou_matrix.shape) > 0:
-    # Apply the iou_threshold to the iou_matrix. Returns mask indicating which value of the
-    # iou_matrx is greater than (1) or equal/less (0) the iou_threshold.
-    a = (iou_matrix > iou_threshold).astype(np.int32)
+  # Check whether any costs were computed.
+  if min(cost_matrix.shape) > 0:
+    # Apply the cost_threshold to the cost_matrix. Returns mask indicating which value of the
+    # cost_matrix is greater than (1) or equal/less (0) the cost_threshold.
+    a = (cost_matrix > cost_threshold).astype(np.int32)
     
     # Check whether there is only one match for each detection and whether there is only one match for each tracker.
     # Compute matches between detections and trackers.
@@ -222,9 +270,9 @@ def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.3):
         matched_indices = np.stack(np.where(a), axis=1)
     else:
       # If not, match the indices using the Jonker-Volgenant algorithm to minimize the assignment costs.
-      matched_indices = linear_assignment(-iou_matrix)
+      matched_indices = linear_assignment(-cost_matrix)
   else:
-    # If no IOUs were computed, then there are no matched indices and therefore no matched detections.
+    # If no costs were computed, then there are no matched indices and therefore no matched detections.
     matched_indices = np.empty(shape=(0,2))
 
   # Compute unmatched detections: Detections for which no tracker was associated.
@@ -241,10 +289,10 @@ def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.3):
     if(t not in matched_indices[:,1]):
       unmatched_trackers.append(t)
 
-  #filter out matched with low IOU
+  # Filter out matched with low cost.
   matches = []
   for m in matched_indices:
-    if(iou_matrix[m[0], m[1]]<iou_threshold):
+    if(cost_matrix[m[0], m[1]]<cost_threshold):
       unmatched_detections.append(m[0])
       unmatched_trackers.append(m[1])
     else:
@@ -262,7 +310,7 @@ def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.3):
 
 
 class Sort(object):
-  def __init__(self, max_age=1, min_hits=3, iou_threshold=0.3):
+  def __init__(self, max_age, min_hits, cost_type, cost_threshold):
     """
     Sets key parameters for SORT
     """
@@ -275,9 +323,12 @@ class Sort(object):
     # TODO: Find out what that means.
     self.min_hits = min_hits
     
-    # Minimum IOU to associate a detection to a track.
-    self.iou_threshold = iou_threshold
+    # Minimum cost to associate a detection to a track.
+    self.cost_threshold = cost_threshold
     
+    # Type of cost computed for association.
+    self.cost_type = cost_type
+        
     # Trackers.
     self.trackers = []
     
@@ -322,7 +373,7 @@ class Sort(object):
       
     # Try to associate detections for current frame with already existing trackers. Also return unmatched trackers 
     # and unmatched detections.
-    matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets,trks, self.iou_threshold)
+    matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets, trks, self.cost_type, self.cost_threshold)
 
     # Update matched trackers with associated detections.
     for m in matched:

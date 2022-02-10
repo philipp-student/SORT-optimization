@@ -81,8 +81,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Tracking')
     
     # Add arguments and descriptions.
-    parser.add_argument('--mode', dest='mode', help='Operating mode. ONLINE if CARLA images should be used. OFFLINE if an offline dataset should be used.', 
-                        type=str, default='OFFLINE')
+    parser.add_argument('--mode', dest='mode', help='Operating mode. "online" if CARLA images should be used. "offline" if an offline dataset should be used.', 
+                        type=str, default='offline')
     parser.add_argument('--display_tracks', dest='display_tracks', help='Whether the tracks should be displayed.',action='store_true')
     parser.add_argument('--display_detections', dest='display_detections', help='Whether the detections should be displayed.',action='store_true')
     parser.add_argument("--max_age", 
@@ -91,7 +91,8 @@ def parse_args():
     parser.add_argument("--min_hits", 
                         help="Minimum number of associated detections before track is initialised.", 
                         type=int, default=3)
-    parser.add_argument("--iou_threshold", help="Minimum IOU for match.", type=float, default=0.3)
+    parser.add_argument("--cost_type", help="Type of cost for match.", type=str, default='iou')
+    parser.add_argument("--cost_threshold", help="Minimum cost for match.", type=float, default=0.3)
     parser.add_argument("--save_tracks", help="Whether the tracks should be saved.", action='store_true')
     parser.add_argument('--detector_type', dest='detector_type', help='Type of YOLO detector that should be used.', 
                         type=str, default='yolov5s')
@@ -110,7 +111,8 @@ def main():
     DISPLAY_TRACKS = args.display_tracks            # Whether tracks should be displayed.
     MAX_AGE = args.max_age                          # Maximum age of a track without getting detections.
     MIN_HITS = args.min_hits                        # Minimum detections for a track to be created.
-    IOU_THRESHOLD = args.iou_threshold              # IOU threshold for association.
+    COST_TYPE = args.cost_type                      # Cost type for association.
+    COST_THRESHOLD = args.cost_threshold            # Cost threshold for association.
     SAVE_TRACKS = args.save_tracks                  # Whether the tracks should be saved in a file.
     DETECTOR_TYPE = args.detector_type              # Type of YOLO detector.
     
@@ -125,9 +127,9 @@ def main():
     
     print(">>> Initializing frame source...")
     # Initialize frame source.
-    if MODE == 'ONLINE':
+    if MODE == 'online':
         FRAME_SOURCE = ServerFrameSource(HOST, PORT)
-    elif MODE == 'OFFLINE':
+    elif MODE == 'offline':
         FRAME_SOURCE = DirectoryFrameSource(OFFLINE_FRAME_DIRECTORY)
     else:
         print("Error: Unknown Mode")
@@ -137,7 +139,8 @@ def main():
     # Create instance of SORT tracker.
     mot_tracker = Sort(max_age=MAX_AGE, 
                        min_hits=MIN_HITS,
-                       iou_threshold=IOU_THRESHOLD)
+                       cost_type=COST_TYPE,
+                       cost_threshold=COST_THRESHOLD)
     
     print(">>> Initialization finished!")    
     print(">>> Tracking begins. Press Ctrl+C to stop the tracking.")
