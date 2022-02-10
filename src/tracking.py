@@ -11,6 +11,7 @@ import time
 import os
 import argparse
 from sort import Sort
+import time
 
 DETECTIONS_COLOR = (255, 0, 0)
 TRACKERS_COLOR = (0, 255, 0)
@@ -58,7 +59,10 @@ def display_bounding_boxes(img, bounding_boxes, color, normalized=True):
         # Plot bounding box.
         img = plot_box(img, bounding_box, color)
 
-    # Display image.
+    # Convert image to RGB.
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    # Display image.    
     cv2.imshow('image', img)
     cv2.waitKey(1)
 
@@ -110,6 +114,11 @@ def main():
     SAVE_TRACKS = args.save_tracks                  # Whether the tracks should be saved in a file.
     DETECTOR_TYPE = args.detector_type              # Type of YOLO detector.
     
+    # Initialize time recording.
+    total_time_detection = 0.0
+    total_time_tracking = 0.0
+    total_frames = 0
+    
     print(">>> Initializing detector...")
     # Initialize detector.
     DETECTOR = YOLOv5(DETECTOR_TYPE)
@@ -132,26 +141,44 @@ def main():
     
     print(">>> Initialization finished!")    
     print(">>> Tracking begins. Press Ctrl+C to stop the tracking.")
-    while(True):
         
-        # Open output file for writing.
-        with open(OUTPUT_FILE_PATH,'w') as output_file:
+    # Open output file for writing.
+    with open(OUTPUT_FILE_PATH,'w') as output_file:    
         
+        while(total_frames < FRAME_SOURCE.num_frames):    
+            
             try:
                 # Get frame from source.
                 camera_frame = FRAME_SOURCE.get_frame()
                 if camera_frame is None: continue                        
                 
+                ######## DETECTION ########   
+                start_time_detection = time.time()
+                            
                 # Detect pedestrians in frame.
-                detections = DETECTOR.detect_pedestrians(camera_frame.frame)
+                detections = DETECTOR.detect_pedestrians(camera_frame.frame)                
+                
+                cycle_time_detection = time.time() - start_time_detection
+                total_time_detection += cycle_time_detection                
+                ###########################
                 
                 # Display frame and detected pedestrians within.
                 if (DISPLAY_DETECTIONS):
                     display_bounding_boxes(camera_frame.frame, detections, DETECTIONS_COLOR)
                 
-                # TODO: Update trackers with detections and retrieve new trackers.
+                ######## TRACKING ########                
+                start_time_tracking = time.time()
+                
+                # Update trackers with detections and retrieve new trackers.
                 # Format of returned tracker: [x1, y1, x2, y2, id].
                 trackers = mot_tracker.update(detections)
+                                
+                cycle_time_tracking = time.time() - start_time_tracking
+                total_time_tracking += cycle_time_tracking                
+                ##########################
+                
+                # Increment frame count.
+                total_frames += 1
                 
                 # Write updated tracker states into output file if desired.
                 if (SAVE_TRACKS):
@@ -161,13 +188,32 @@ def main():
                 if (DISPLAY_TRACKS):                
                     display_bounding_boxes(camera_frame.frame, trackers, TRACKERS_COLOR)
                 
-            except KeyboardInterrupt:
-                # Clean up.
-                print(">>> Cleaning up...")
-                FRAME_SOURCE.cleanup()
-                
+            except KeyboardInterrupt:                
                 break
+            
+    # Clean up.
+    print(">>> Cleaning up...")
+    FRAME_SOURCE.cleanup()
+    
+    # Runtime analysis results for detection.
+    detection_fps = total_frames / total_time_detection
+    detection_mspf = (total_time_detection / total_frames) * 1000.0
+    print("Detection: %.3f seconds for %d frames (%.1f FPS | %.3f ms/frame)" % 
+          (total_time_detection, total_frames, detection_fps, detection_mspf))
+    
+    # Runtime analysis results for tracking.
+    tracking_fps = total_frames / total_time_tracking
+    tracking_mspf = (total_time_tracking / total_frames) * 1000.0
+    print("Tracking: %.3f seconds for %d frames (%.1f FPS | %.3f ms/frame)" % 
+          (total_time_tracking, total_frames, tracking_fps, tracking_mspf))
 
+    # Runtime analysis results for both combined.
+    total_time_combined = total_time_detection + total_time_tracking
+    combined_fps = total_frames / total_time_combined
+    combined_mspf = (total_time_combined / total_frames) * 1000.0      
+    print("Combined: %.3f seconds for %d frames (%.1f FPS | %.3f ms/frame)" % 
+          (total_time_combined, total_frames, combined_fps, combined_mspf))
+    
 if __name__ == "__main__":    
     main()
     

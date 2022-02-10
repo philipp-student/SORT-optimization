@@ -7,11 +7,13 @@ import socket
 import threading
 import struct
 import pickle
+import math
 
 class FrameSource():
     def __init__(self):
         self.frame_queue = queue.Queue()
         self.frame_queue_lock = threading.Lock()
+        self.num_frames = -1
     
     def get_frame(self, timeout=1):
         try:
@@ -52,7 +54,10 @@ class ServerFrameSource(FrameSource):
         self.thread_cancellation_requested = False
         
         # Start frame receival thread.                
-        self.frame_receival_thread.start()  
+        self.frame_receival_thread.start()
+        
+        # Set number of frames.
+        self.num_frames = math.inf
     
     def cleanup(self):
         # Signal thread stop.
@@ -113,8 +118,8 @@ class DirectoryFrameSource(FrameSource):
         # Set frame directory.
         self.frame_directory = frame_directory
         
-        # Load frames from directory.
-        self._load_frames(self.frame_directory)
+        # Load frames from directory and set number of frames.
+        self.num_frames = self._load_frames(self.frame_directory)
        
     def _load_frames(self, frame_directory):
         # Get all jpg files in frame directory.
@@ -125,12 +130,17 @@ class DirectoryFrameSource(FrameSource):
         self.frame_queue_lock.acquire()
             
         # Create a camera frame for each image and put it into the queue.
+        num_frames = 0
         for frame_file_index, frame_file_name in enumerate(frame_files):          
             # Load frame from file.  
             frame = CARLACameraFrame.from_image(frame_file_name, frame_file_index)                        
             
             # Add frame to queue.
-            self.frame_queue.put(frame)
+            self.frame_queue.put(frame)                    
+            
+            num_frames += 1
             
         # Release frame queue lock.
-        self.frame_queue_lock.release()         
+        self.frame_queue_lock.release()        
+        
+        return num_frames
