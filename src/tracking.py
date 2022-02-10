@@ -10,6 +10,10 @@ import cv2
 import time
 import os
 import argparse
+from sort import Sort
+
+DETECTIONS_COLOR = (255, 0, 0)
+TRACKERS_COLOR = (0, 255, 0)
 
 FRAME_SOURCE = None
 
@@ -33,26 +37,26 @@ def norm2img(xyxy, width, height):
     return np.array([xyxy[0] * width, xyxy[1] * height, xyxy[2] * width, xyxy[3] * height])
 
 # Plots a bounding box on the given image.
-def plot_box(img, bounding_box_xyxy, color=(255, 0, 0), thickness=2):        
+def plot_box(img, bounding_box_xyxy, color, thickness=2):        
     # Plot rectangle in image.
     return cv2.rectangle(img, (int(bounding_box_xyxy[0]), int(bounding_box_xyxy[1])), (int(bounding_box_xyxy[2]), int(bounding_box_xyxy[3])), color, thickness)
 
 # Draws bounding boxes onto an image and displays it.
-def display_bounding_boxes(img, bounding_boxes, normalized=True):
+def display_bounding_boxes(img, bounding_boxes, color, normalized=True):
     if bounding_boxes is None: return
     
     # Draw each bounding box on image.
-    num_boxes = bounding_boxes.size(0)
+    num_boxes = bounding_boxes.shape[0]
     for i in range(num_boxes):        
         # Get coordinates of bounding box.
-        bounding_box = bounding_boxes[i].numpy()
+        bounding_box = bounding_boxes[i]
         
         # Compute explicit coordinates if they are normalized.
         if normalized:
             bounding_box = norm2img(bounding_box, img.shape[1], img.shape[0])
         
         # Plot bounding box.
-        img = plot_box(img, bounding_box)
+        img = plot_box(img, bounding_box, color)
 
     # Display image.
     cv2.imshow('image', img)
@@ -75,7 +79,8 @@ def parse_args():
     # Add arguments and descriptions.
     parser.add_argument('--mode', dest='mode', help='Operating mode. ONLINE if CARLA images should be used. OFFLINE if an offline dataset should be used.', 
                         type=str, default='OFFLINE')
-    parser.add_argument('--display', dest='display', help='Display online tracker output (slow) [False]',action='store_true')
+    parser.add_argument('--display_tracks', dest='display_tracks', help='Whether the tracks should be displayed.',action='store_true')
+    parser.add_argument('--display_detections', dest='display_detections', help='Whether the detections should be displayed.',action='store_true')
     parser.add_argument("--max_age", 
                         help="Maximum number of frames to keep alive a track without associated detections.", 
                         type=int, default=1)
@@ -83,7 +88,7 @@ def parse_args():
                         help="Minimum number of associated detections before track is initialised.", 
                         type=int, default=3)
     parser.add_argument("--iou_threshold", help="Minimum IOU for match.", type=float, default=0.3)
-    parser.add_argument("--save_tracks", help="Whether the tracks should be saved.", )
+    parser.add_argument("--save_tracks", help="Whether the tracks should be saved.", action='store_true')
     parser.add_argument('--detector_type', dest='detector_type', help='Type of YOLO detector that should be used.', 
                         type=str, default='yolov5s')
     
@@ -96,13 +101,14 @@ def main():
     args = parse_args()
     
     # Set properties of tracking process.    
-    MODE = args.mode
-    DISPLAY = args.display
-    MAX_AGE = args.max_age
-    MIN_HITS = args.min_hits
-    IOU_THRESHOLD = args.iou_threshold
-    SAVE_TRACKS = args.save_tracks
-    DETECTOR_TYPE = args.detector_type
+    MODE = args.mode                                # Tracking mode
+    DISPLAY_DETECTIONS = args.display_detections    # Whether detections should be displayed.
+    DISPLAY_TRACKS = args.display_tracks            # Whether tracks should be displayed.
+    MAX_AGE = args.max_age                          # Maximum age of a track without getting detections.
+    MIN_HITS = args.min_hits                        # Minimum detections for a track to be created.
+    IOU_THRESHOLD = args.iou_threshold              # IOU threshold for association.
+    SAVE_TRACKS = args.save_tracks                  # Whether the tracks should be saved in a file.
+    DETECTOR_TYPE = args.detector_type              # Type of YOLO detector.
     
     print(">>> Initializing detector...")
     # Initialize detector.
@@ -117,6 +123,12 @@ def main():
     else:
         print("Error: Unknown Mode")
         exit()
+    
+    print(">>> Initializing SORT tracker...")
+    # Create instance of SORT tracker.
+    mot_tracker = Sort(max_age=MAX_AGE, 
+                       min_hits=MIN_HITS,
+                       iou_threshold=IOU_THRESHOLD)
     
     print(">>> Initialization finished!")    
     print(">>> Tracking begins. Press Ctrl+C to stop the tracking.")
@@ -134,20 +146,20 @@ def main():
                 detections = DETECTOR.detect_pedestrians(camera_frame.frame)
                 
                 # Display frame and detected pedestrians within.
-                if (DISPLAY):
-                    display_bounding_boxes(camera_frame.frame, detections)
+                if (DISPLAY_DETECTIONS):
+                    display_bounding_boxes(camera_frame.frame, detections, DETECTIONS_COLOR)
                 
                 # TODO: Update trackers with detections and retrieve new trackers.
                 # Format of returned tracker: [x1, y1, x2, y2, id].
-                trackers = None
+                trackers = mot_tracker.update(detections)
                 
                 # Write updated tracker states into output file if desired.
                 if (SAVE_TRACKS):
                     write_trackers(output_file, trackers, camera_frame.frame_index)
                 
                 # Display updated trackers if desired.
-                if (DISPLAY):                
-                    display_bounding_boxes(camera_frame.frame, trackers)
+                if (DISPLAY_TRACKS):                
+                    display_bounding_boxes(camera_frame.frame, trackers, TRACKERS_COLOR)
                 
             except KeyboardInterrupt:
                 # Clean up.
