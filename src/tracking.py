@@ -9,10 +9,7 @@ from detector import YOLOv5
 import cv2
 import time
 import os
-
-MODE = 'OFFLINE'
-DISPLAY = True
-SAVE_TRACKS = True
+import argparse
 
 FRAME_SOURCE = None
 
@@ -24,7 +21,6 @@ OFFLINE_FRAME_DIRECTORY = r'D:\Philipp Student\HRW\Fahrassistenzsysteme 2\Semina
 HOST = 'localhost'
 PORT = 50007
 
-DETECTOR_TYPE = 'yolov5s'
 DETECTOR = None
 
 OUTPUT_FILE_NAME = 'test_outputs'
@@ -70,8 +66,44 @@ def write_trackers(output_file, trackers, frame_index):
         # Write tracker as xywh into file.                   
         print('%d,%d,%.2f,%.2f,%.2f,%.2f'%(frame_index,t[4],t[0],t[1],t[2]-t[0],t[3]-t[1]),file=output_file)
 
+# Parses command line arguments.
+def parse_args():
+    """Parse input arguments."""
+    # Instantiate command line argument parser.
+    parser = argparse.ArgumentParser(description='Tracking')
+    
+    # Add arguments and descriptions.
+    parser.add_argument('--mode', dest='mode', help='Operating mode. ONLINE if CARLA images should be used. OFFLINE if an offline dataset should be used.', 
+                        type=str, default='OFFLINE')
+    parser.add_argument('--display', dest='display', help='Display online tracker output (slow) [False]',action='store_true')
+    parser.add_argument("--max_age", 
+                        help="Maximum number of frames to keep alive a track without associated detections.", 
+                        type=int, default=1)
+    parser.add_argument("--min_hits", 
+                        help="Minimum number of associated detections before track is initialised.", 
+                        type=int, default=3)
+    parser.add_argument("--iou_threshold", help="Minimum IOU for match.", type=float, default=0.3)
+    parser.add_argument("--save_tracks", help="Whether the tracks should be saved.", )
+    parser.add_argument('--detector_type', dest='detector_type', help='Type of YOLO detector that should be used.', 
+                        type=str, default='yolov5s')
+    
+    # Parse given arguments and return results.
+    return parser.parse_args()
+
 # Main function.
 def main():
+    # Parse command line arguments.
+    args = parse_args()
+    
+    # Set properties of tracking process.    
+    MODE = args.mode
+    DISPLAY = args.display
+    MAX_AGE = args.max_age
+    MIN_HITS = args.min_hits
+    IOU_THRESHOLD = args.iou_threshold
+    SAVE_TRACKS = args.save_tracks
+    DETECTOR_TYPE = args.detector_type
+    
     print(">>> Initializing detector...")
     # Initialize detector.
     DETECTOR = YOLOv5(DETECTOR_TYPE)
