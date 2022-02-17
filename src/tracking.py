@@ -18,10 +18,10 @@ TRACKERS_COLOR = (0, 255, 0)
 
 FRAME_SOURCE = None
 
-#OFFLINE_FRAME_DIRECTORY = r'D:\Philipp Student\HRW\Fahrassistenzsysteme 2\Seminararbeit\MOT15\test\AVG-TownCentre\img1'
+OFFLINE_FRAME_DIRECTORY = r'D:\Philipp Student\HRW\Fahrassistenzsysteme 2\Seminararbeit\MOT15\test\AVG-TownCentre\img1'
 #OFFLINE_FRAME_DIRECTORY = r'D:\Philipp Student\HRW\Fahrassistenzsysteme 2\Seminararbeit\MOT15\test\ETH-Jelmoli\img1'
 #OFFLINE_FRAME_DIRECTORY = r'D:\Philipp Student\HRW\Fahrassistenzsysteme 2\Seminararbeit\MOT15\test\Venice-1\img1'
-OFFLINE_FRAME_DIRECTORY = r'D:\Philipp Student\HRW\Fahrassistenzsysteme 2\Seminararbeit\MOT15\train\KITTI-17\img1'
+#OFFLINE_FRAME_DIRECTORY = r'D:\Philipp Student\HRW\Fahrassistenzsysteme 2\Seminararbeit\MOT15\train\KITTI-17\img1'
 
 HOST = 'localhost'
 PORT = 50007
@@ -37,8 +37,8 @@ OUTPUT_FILE_PATH = os.path.join(OUTPUT_FILE_FOLDER, "{0}{1}".format(OUTPUT_FILE_
 def norm2img(xyxy, width, height):
     return np.array([xyxy[0] * width, xyxy[1] * height, xyxy[2] * width, xyxy[3] * height])
 
-# Plots a bounding box on the given image.
-def plot_box(img, bounding_box_xyxy, color, thickness=2):        
+# Draws a bounding box on the given image.
+def draw_box(img, bounding_box_xyxy, color, thickness=2):        
     # Plot rectangle in image.
     return cv2.rectangle(img, (int(bounding_box_xyxy[0]), int(bounding_box_xyxy[1])), (int(bounding_box_xyxy[2]), int(bounding_box_xyxy[3])), color, thickness)
 
@@ -57,7 +57,7 @@ def display_bounding_boxes(img, bounding_boxes, color, normalized=True):
             bounding_box = norm2img(bounding_box, img.shape[1], img.shape[0])
         
         # Plot bounding box.
-        img = plot_box(img, bounding_box, color)
+        img = draw_box(img, bounding_box, color)
 
     # Convert image to RGB.
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -65,6 +65,28 @@ def display_bounding_boxes(img, bounding_boxes, color, normalized=True):
     # Display image.    
     cv2.imshow('image', img)
     cv2.waitKey(1)
+
+# Draws bounding boxes onto an image withou displaying it.
+def draw_bounding_boxes(img, bounding_boxes, color, normalized=True):
+    if bounding_boxes is None: return
+    
+    # Draw each bounding box on image.
+    num_boxes = bounding_boxes.shape[0]
+    for i in range(num_boxes):        
+        # Get coordinates of bounding box.
+        bounding_box = bounding_boxes[i]
+        
+        # Compute explicit coordinates if they are normalized.
+        if normalized:
+            bounding_box = norm2img(bounding_box, img.shape[1], img.shape[0])
+        
+        # Draw bounding box onto image.
+        img = draw_box(img, bounding_box, color)
+
+    # Convert image to RGB.
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    
+    return img
 
 # Writes the given trackers into the given output file.
 def write_trackers(output_file, trackers, frame_index):
