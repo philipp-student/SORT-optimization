@@ -2,17 +2,6 @@ import torch
 import cv2
 import numpy as np
 
-def xywh2xyxy(xywh, width, height):
-    center = (xywh[0] * width, xywh[1] * height)
-    
-    obj_width = xywh[2] * width
-    obj_height = xywh[3] * height
-    
-    start_point = (center[0] - (obj_width/2), center[1] - obj_height/2)    
-    end_point = (start_point[0] + obj_width, start_point[1] + obj_height)
-    
-    return np.array([start_point[0], start_point[1], end_point[0], end_point[1]])
-
 def norm2img(xyxy, width, height):
     return np.array([xyxy[0] * width, xyxy[1] * height, xyxy[2] * width, xyxy[3] * height])
 
@@ -25,7 +14,7 @@ def plot_box(img, pedestrian_xyxy, width, height, color=(255, 0, 0), thickness=2
 
 # Load model.
 model_type = 'yolov5s'
-model = torch.hub.load('ultralytics/yolov5', model_type, pretrained=True)
+model = torch.hub.load('ultralytics/yolov5', model_type, pretrained=True, device='cuda')
 
 # Load images.
 img_path = './img/2.jpg'
