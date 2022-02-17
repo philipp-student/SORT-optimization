@@ -15,7 +15,7 @@ class YOLOv5(Detector):
         self.model_type = model_type
         self.model = torch.hub.load('ultralytics/yolov5', self.model_type, pretrained=True)
         
-    def detect_pedestrians(self, img):
+    def detect_pedestrians(self, img, include_confidence=False):
         # Inference.
         results = self.model(img)
         
@@ -31,10 +31,18 @@ class YOLOv5(Detector):
         # Get number of detected pedestrians.
         num_detections = results.size(0)
 
-        # Get coordinates of all detected pedestrians.
-        detected_pedestrians = torch.zeros([num_detections, 4], dtype=torch.float)
+        # Setup array based on whether the confidence should be included.
+        if include_confidence:            
+            detected_pedestrians = torch.zeros([num_detections, 5], dtype=torch.float)
+        else:
+            detected_pedestrians = torch.zeros([num_detections, 4], dtype=torch.float)
+        
+        # Get coordinates and confidences (if desired) of all detected pedestrians.    
         for i in range(num_detections):
-            detected_pedestrians[i, :] = results[i, :4]
+            if include_confidence:
+                detected_pedestrians[i, :] = results[i, :5]
+            else:
+                detected_pedestrians[i, :] = results[i, :4]
                 
         # Return detected pedestrians.
         return detected_pedestrians

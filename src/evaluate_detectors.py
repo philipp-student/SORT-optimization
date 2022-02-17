@@ -6,7 +6,7 @@ import os
 
 def convert_to_absolute(width, height, bounding_boxes):            
     for b_index, b in enumerate(bounding_boxes):
-        bounding_boxes[b_index, :] = norm2img(b, width, height)
+        bounding_boxes[b_index, :4] = norm2img(b, width, height)
     return bounding_boxes
 
 # Main folder with all datasets.
@@ -39,7 +39,7 @@ for dataset_folder in os.listdir(MAIN_FOLDER):
     custom_groundtruth_file = os.path.join(DATASET_MAIN_FOLDER, "gt", "gt_custom.txt")
 
     # Output file for YOLOv5 detections.
-    output_yolov5 = os.path.join(DATASET_MAIN_FOLDER, "det", "YOLOv5_" + dataset_name + ".txt")
+    output_yolov5 = os.path.join(DATASET_MAIN_FOLDER, "det", "det_YOLOv5.txt")
 
     # Initialize frame source.
     FRAME_SOURCE = DirectoryFrameSource(OFFLINE_FRAME_DIRECTORY)
@@ -54,15 +54,15 @@ for dataset_folder in os.listdir(MAIN_FOLDER):
             img = FRAME_SOURCE.get_frame()        
             
             # Inference.
-            detections = YOLO_DETECTOR.detect_pedestrians(img.frame)
+            detections = YOLO_DETECTOR.detect_pedestrians(img.frame, True)
             detections = detections.numpy()
             
-            # Convert detection coordinates
+            # Convert detection coordinates.
             detections = convert_to_absolute(img.frame.shape[1], img.frame.shape[0], detections)
             
             # Write detections into file.
             for d in detections:
-                print('%d,%.2f,%.2f,%.2f,%.2f' % (img.frame_index + 1, d[0], d[1], d[2], d[3]), file=output_file)
+                print('%d,%.2f,%.2f,%.2f,%.2f,%.4f' % (img.frame_index + 1, d[0], d[1], d[2], d[3], d[4]), file=output_file)
                 
             num_frames += 1
             if num_frames % 10 == 0:
@@ -82,7 +82,7 @@ for dataset_folder in os.listdir(MAIN_FOLDER):
     # Write custom detections file.
     with open(custom_detections_file, 'w') as output_file:
         for d in original_detections:            
-            print('%d,%.2f,%.2f,%.2f,%.2f' % (d[0], d[2], d[3], d[4], d[5]), file=output_file)
+            print('%d,%.2f,%.2f,%.2f,%.2f,%.4f' % (d[0], d[2], d[3], d[4], d[5], d[6] / 100.0), file=output_file)
      
     ######### Create custom groundtruth data #########
         

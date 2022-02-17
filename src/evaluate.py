@@ -53,7 +53,7 @@ for dataset_folder in os.listdir(MAIN_FOLDER):
     # Result file.
     #result_file = os.path.join(TRACKS_FOLDER, "tracks.txt")                                # Tracks
     #result_file = os.path.join(DETECTIONS_FOLDER, "det_custom.txt")                        # Original Detections
-    result_file = os.path.join(DETECTIONS_FOLDER, "YOLOv5_" + dataset_name + ".txt")        # YOLOv5 detections
+    result_file = os.path.join(DETECTIONS_FOLDER, "det_YOLOv5.txt")                         # YOLOv5 detections
     
     ############ Load data ############
     
@@ -72,10 +72,10 @@ for dataset_folder in os.listdir(MAIN_FOLDER):
         groundtruth_boxes = groundtruths[groundtruths[:, 0] == frame_index, 1:]
         
         # Get all result bounding boxes for current frame.
-        result_boxes = results[results[:, 0] == frame_index, 1:]             
+        result_boxes = results[results[:, 0] == frame_index, 1:]
     
         # Compute correspondences of bounding boxes.
-        matches, unmatched_groundtruths, unmatched_results = associate_detections_to_trackers(groundtruth_boxes, result_boxes, 'iou', 0.5)
+        matches, unmatched_groundtruths, unmatched_results = associate_detections_to_trackers(groundtruth_boxes, result_boxes[:, :4], 'iou', 0.5)
     
         # Compute evaluation metrics.
         image_precision = precision(matches, unmatched_groundtruths, unmatched_results)
