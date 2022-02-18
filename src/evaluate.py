@@ -6,6 +6,8 @@ from PIL import Image
 import cv2
 from helpers import xywh2xyxy
 
+RECALL_INTERPOLATION_VALUES = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+
 def recall(matches, unmatched_groundtruths, unmatched_results):
     tp = matches.shape[0]
     fp = unmatched_results.shape[0]
@@ -26,8 +28,83 @@ def precision(matches, unmatched_groundtruths, unmatched_results):
     except ZeroDivisionError:
         return 0
 
+def mean_average_precision(groundtruth_boxes, result_boxes):
+    
+    # Compute correspondences of groundtruth bounding boxes to result bounding boxes.
+    matches, unmatched_groundtruths, unmatched_results = associate_detections_to_trackers(groundtruth_boxes, result_boxes[:, :4], 'iou', 0.5)
+    
+    
+    # Create array to hold results. Format: [Is TP?, Confidence, Precision, Recall, Interpolated Precision]
+    prec_rec = np.zeros((result_boxes.shape[0], 5))
+    
+    # Copy confidences.
+    prec_rec[:, 1] = result_boxes[:, 4]
+    
+    # Check for each result if it's TP.
+    for result_index in range(result_boxes.shape[0]):
+        if result_index in unmatched_results:
+            prec_rec[result_index, 0] = 0
+        else:
+            prec_rec[result_index, 0] = 1
+    
+    # Rank values by confidence.
+    prec_rec = prec_rec[prec_rec[:, 1].argsort()][::-1]
+    
+    # Compute precision and recall for each result.
+    tp_counter = 0
+    tp_overall = matches.shape[0]
+    for i in range(prec_rec.shape[0]):
+        if prec_rec[i, 0] == 1:
+            tp_counter += 1
+            
+        # Compute precision.
+        prec_rec[i, 2] = tp_counter / (i + 1)
+        
+        # Compute recall.
+        try:
+            prec_rec[i, 3] = tp_counter / tp_overall
+        except ZeroDivisionError:
+            prec_rec[i, 3] = 0    
+    
+    # Determine interpolated precision for each result.
+    distinct_recall_values = np.unique(prec_rec[:, 3])    
+    for recall_value in distinct_recall_values:
+        
+        # Get indices of columns that contain the current recall value.
+        column_indices_with_recall = (prec_rec[:, 3] == recall_value).nonzero()
+        
+        # Select all columns that have the current recall value.
+        columns_with_recall = prec_rec[column_indices_with_recall]
+        
+        # Select maximum precision of these columns.
+        max_prec = columns_with_recall[:, 2].max()
+        
+        # Set the maximum precision as the interpolated precision.
+        prec_rec[column_indices_with_recall, 4] = max_prec
+    
+    # Compute average precision.
+    prec_sum = 0
+    for recall_interpolation_value in RECALL_INTERPOLATION_VALUES:
+        # Get columns that have a recall equal to or greater than the current interpolation value.
+        relevant_columns = prec_rec[prec_rec[:, 3] >= recall_interpolation_value]
+        
+        # Check if there are any more relevant colums.
+        if relevant_columns.shape[0] == 0:
+            continue
+        
+        # Sort relevant columns by recall.
+        relevant_columns = relevant_columns[relevant_columns[:, 3].argsort()]
+        
+        # Get reprsentative value for current interpolation value.
+        representative = relevant_columns[0, 4]
+        
+        # Cumulate precision sum.
+        prec_sum += representative
+    
+    return prec_sum / 11
+        
 MODE = "detection"
-DETECTOR_TYPE = "original"
+DETECTOR_TYPE = "yolov5"
 
 # Main folder with all datasets.
 MAIN_FOLDER = r"D:\Philipp Student\HRW\Fahrassistenzsysteme 2\Seminararbeit\MOT15\train"
@@ -93,11 +170,12 @@ for dataset_folder in os.listdir(MAIN_FOLDER):
     num_frames = int(np.max(groundtruths[:, 0]))
     
     if MODE == 'detection':
-        evaluation_values = np.zeros((num_frames, 3))
+        evaluation_values = np.zeros((num_frames, 2))
     elif MODE == 'tracking':
         # TODO: Implement!
         pass
     
+    average_precision_sum = 0
     precision_sum = 0
     recall_sum = 0
     
@@ -113,16 +191,13 @@ for dataset_folder in os.listdir(MAIN_FOLDER):
             elif DETECTOR_TYPE == 'yolov5':
                 # Get all YOLOv5 detection bounding boxes for current frame.
                 result_boxes = yolo_detections[yolo_detections[:, 0] == frame_index, 1:]
-                
-            # Compute correspondences of bounding boxes.
-            matches, unmatched_groundtruths, unmatched_results = associate_detections_to_trackers(groundtruth_boxes, result_boxes[:, :4], 'iou', 0.5)
             
             # Compute evaluation metrics.
-            image_precision = precision(matches, unmatched_groundtruths, unmatched_results)
-            image_recall = recall(matches, unmatched_groundtruths, unmatched_results)
+            image_average_precision = mean_average_precision(groundtruth_boxes, result_boxes)            
+            average_precision_sum += image_average_precision
             
             # Save evaluation values.
-            evaluation_values[frame_index - 1, :] = np.array([frame_index, image_precision, image_recall])
+            evaluation_values[frame_index - 1, :] = np.array([frame_index, image_average_precision])
             
         elif MODE == 'tracking':
             # TODO: Implement!
@@ -132,11 +207,11 @@ for dataset_folder in os.listdir(MAIN_FOLDER):
     with open(evaluation_file, 'w') as output_file:
         for e in evaluation_values:
             if MODE == 'detection':
-                print('%d,%.2f,%.2f' % (e[0], e[1], e[2]), file=output_file)
+                print('%d,%.2f' % (e[0], e[1]), file=output_file)
             elif MODE == 'tracking':
                 # TODO: Implement!
                 pass
-            
-            
 
+    print("Mean average precision: {0}".format(average_precision_sum / num_frames))
+            
 print("Evaluation finished!")
