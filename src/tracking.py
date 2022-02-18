@@ -93,8 +93,8 @@ def write_trackers(output_file, trackers, frame_index):
     if trackers is None: return
     
     for t in trackers: 
-        # Write tracker as xywh into file.                   
-        print('%d,%d,%.2f,%.2f,%.2f,%.2f'%(frame_index,t[4],t[0],t[1],t[2]-t[0],t[3]-t[1]),file=output_file)
+        # Write tracker as xyxy into file.                   
+        print('%d,%d,%.2f,%.2f,%.2f,%.2f'%(frame_index,t[4],t[0],t[1],t[2],t[3]),file=output_file)
 
 # Parses command line arguments.
 def parse_args():
