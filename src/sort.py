@@ -238,7 +238,7 @@ class KalmanBoxTracker(object):
     return convert_x_to_bbox(self.kf.x)
 
 
-def associate_detections_to_trackers(detections, trackers, cost_type, cost_threshold):
+def associate_detections_to_trackers(detections, trackers, cost_type, cost_threshold, include_iou=False):
   """
   Assigns detections to tracked object (both represented as bounding boxes)
 
@@ -266,8 +266,8 @@ def associate_detections_to_trackers(detections, trackers, cost_type, cost_thres
     # Check whether there is only one match for each detection and whether there is only one match for each tracker.
     # Compute matches between detections and trackers.
     if a.sum(1).max() == 1 and a.sum(0).max() == 1:
-        # If so, the matches were perfect. Extract the indices.
-        matched_indices = np.stack(np.where(a), axis=1)
+      # If so, the matches were perfect. Extract the indices.
+      matched_indices = np.stack(np.where(a), axis=1)
     else:
       # If not, match the indices using the Jonker-Volgenant algorithm to minimize the assignment costs.
       matched_indices = linear_assignment(-cost_matrix)
@@ -292,11 +292,21 @@ def associate_detections_to_trackers(detections, trackers, cost_type, cost_thres
   # Filter out matched with low cost.
   matches = []
   for m in matched_indices:
-    if(cost_matrix[m[0], m[1]]<cost_threshold):
+    current_iou = cost_matrix[m[0], m[1]]
+    if(current_iou < cost_threshold):
       unmatched_detections.append(m[0])
       unmatched_trackers.append(m[1])
-    else:
-      matches.append(m.reshape(1,2))
+    else:            
+      # Include iou in match if desired.
+      if include_iou:        
+        # Concat iou to match.
+        m = np.concatenate([m, np.array([current_iou])])
+        
+        # Save match with iou.
+        matches.append(m.reshape(1,3))
+      else:
+        # Save match without iou.
+        matches.append(m.reshape(1,2))
       
   # If there are no matches, construct default value for matches.
   # Otherwise, concatenate all matches vertically.

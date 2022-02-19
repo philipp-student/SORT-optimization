@@ -6,6 +6,7 @@ from PIL import Image
 import cv2
 from helpers import xywh2xyxy
 
+CORRESPONDENCE_IOU_THRESHOLD = 0.5
 RECALL_INTERPOLATION_VALUES = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
 
 def recall(matches, unmatched_groundtruths, unmatched_results):
@@ -31,8 +32,7 @@ def precision(matches, unmatched_groundtruths, unmatched_results):
 def mean_average_precision(groundtruth_boxes, result_boxes):
     
     # Compute correspondences of groundtruth bounding boxes to result bounding boxes.
-    matches, unmatched_groundtruths, unmatched_results = associate_detections_to_trackers(groundtruth_boxes, result_boxes[:, :4], 'iou', 0.5)
-    
+    matches, unmatched_groundtruths, unmatched_results = associate_detections_to_trackers(groundtruth_boxes, result_boxes[:, :4], 'iou', CORRESPONDENCE_IOU_THRESHOLD)
     
     # Create array to hold results. Format: [Is TP?, Confidence, Precision, Recall, Interpolated Precision]
     prec_rec = np.zeros((result_boxes.shape[0], 5))
@@ -103,8 +103,8 @@ def mean_average_precision(groundtruth_boxes, result_boxes):
     
     return prec_sum / 11
         
-MODE = "detection"
-DETECTOR_TYPE = "yolov5"
+MODE = "tracking"
+DETECTOR_TYPE = "original"
 
 # Main folder with all datasets.
 MAIN_FOLDER = r"D:\Philipp Student\HRW\Fahrassistenzsysteme 2\Seminararbeit\MOT15\train"
@@ -124,94 +124,85 @@ for dataset_folder in os.listdir(MAIN_FOLDER):
     
     # Tracks folder.
     TRACKS_FOLDER = os.path.join(DATASET_MAIN_FOLDER, "tracks")
-    
-    # Evaluation folder.
-    EVALUATION_FOLDER = os.path.join(DATASET_MAIN_FOLDER, "eval")
 
     # Name of dataset.
     dataset_name = dataset_folder
     print("################# {0} #################".format(dataset_name))
 
-    # Groundtruth file (custom format).
-    groundtruths_file = os.path.join(GROUNDTRUTHS_FOLDER, "gt_custom.txt")                           # Groundtruths
+    # Groundtruths file (custom format).
+    groundtruths_file = os.path.join(GROUNDTRUTHS_FOLDER, "gt_custom.txt")
 
     # Orignal detections file.
-    original_detections_file = os.path.join(DETECTIONS_FOLDER, "det_custom.txt")                    # Original Detections
+    original_detections_file = os.path.join(DETECTIONS_FOLDER, "det_custom.txt")
 
     # YOLOv5 detections file.
-    yolo_detections_file = os.path.join(DETECTIONS_FOLDER, "det_YOLOv5.txt")          # YOLOv5 detections
+    yolo_detections_file = os.path.join(DETECTIONS_FOLDER, "det_YOLOv5.txt")
 
     # Tracks file.
-    tracks_file = os.path.join(TRACKS_FOLDER, "tracks.txt")                                         # Tracks
-    
-    # Evaluation file.
-    if MODE == 'detection':
-        if DETECTOR_TYPE == 'original':
-            evaluation_file = os.path.join(EVALUATION_FOLDER, "evaluation_original_detector.txt")
-        elif DETECTOR_TYPE == 'yolov5':
-            evaluation_file = os.path.join(EVALUATION_FOLDER, "evaluation_yolov5_detector.txt")
-    elif MODE == 'tracking':
-            evaluation_file = os.path.join(EVALUATION_FOLDER, "evaluation_tracking.txt")
-    
-    # Create evaluation folder if it does not exist yet.
-    if not os.path.exists(EVALUATION_FOLDER):
-        os.mkdir(EVALUATION_FOLDER)
+    tracks_file = os.path.join(TRACKS_FOLDER, "tracks.txt")
     
     ############ Load data ############
     
     groundtruths = np.loadtxt(groundtruths_file, delimiter=',')
     original_detections = np.loadtxt(original_detections_file, delimiter=',')
     yolo_detections = np.loadtxt(yolo_detections_file, delimiter=',')
-    #tracks = np.loadtxt(tracks_file, delimiter=',')
+    tracks = np.loadtxt(tracks_file, delimiter=',')
     
-    ############ Evaluate ############
+    ############ Evaluation ############
     
     # Get number of frames in dataset.
     num_frames = int(np.max(groundtruths[:, 0]))
     
-    if MODE == 'detection':
-        evaluation_values = np.zeros((num_frames, 2))
-    elif MODE == 'tracking':
-        # TODO: Implement!
-        pass
-    
+    # Helpers for detection evaluation.
     average_precision_sum = 0
-    precision_sum = 0
-    recall_sum = 0
+    
+    # Helpers for tracking evaluation.
+    MOTP_matches_sum = 0
+    MOTP_error_sum = 0
+    
+    MOTA_false_negatives_sum = 0
+    MOTA_false_positives_sum = 0
+    MOTA_id_switches_sum = 0
+    MOTA_groundtruths_sum = groundtruths.shape[0]
     
     for frame_index in range(1, num_frames + 1):
-
+        
         # Get all groundtruth bounding boxes for current frame.
         groundtruth_boxes = groundtruths[groundtruths[:, 0] == frame_index, 1:]
         
         if MODE == 'detection':
             if DETECTOR_TYPE == 'original':
                 # Get all original detection bounding boxes for current frame.
-                result_boxes = original_detections[original_detections[:, 0] == frame_index, 1:]
+                detection_boxes = original_detections[original_detections[:, 0] == frame_index, 1:]
             elif DETECTOR_TYPE == 'yolov5':
                 # Get all YOLOv5 detection bounding boxes for current frame.
-                result_boxes = yolo_detections[yolo_detections[:, 0] == frame_index, 1:]
+                detection_boxes = yolo_detections[yolo_detections[:, 0] == frame_index, 1:]
             
-            # Compute evaluation metrics.
-            image_average_precision = mean_average_precision(groundtruth_boxes, result_boxes)            
-            average_precision_sum += image_average_precision
+            ############# Mean average precision #############            
+            average_precision_sum += mean_average_precision(groundtruth_boxes, detection_boxes)
             
-            # Save evaluation values.
-            evaluation_values[frame_index - 1, :] = np.array([frame_index, image_average_precision])
-            
-        elif MODE == 'tracking':
-            # TODO: Implement!
-            pass
+        elif MODE == 'tracking':    
+            # Get all tracks of current frame.            
+            track_boxes = tracks[tracks[:, 0] == frame_index, 1:]   
+  
+            # Compute correspondences of groundtruth bounding boxes to track bounding boxes. Include iou of each match for MOTP computation.
+            matches, unmatched_groundtruths, unmatched_results = associate_detections_to_trackers(groundtruth_boxes, track_boxes[:, 1:], 'iou', CORRESPONDENCE_IOU_THRESHOLD, True)
+    
+            ############# Multi Object Tracking Precision (MOTP) #############
+                
+            # Get number of matches and add it to the sum.
+            matches_sum += matches.shape[0]
         
-    # Write evaluation values into file.
-    with open(evaluation_file, 'w') as output_file:
-        for e in evaluation_values:
-            if MODE == 'detection':
-                print('%d,%.2f' % (e[0], e[1]), file=output_file)
-            elif MODE == 'tracking':
-                # TODO: Implement!
-                pass
+            # Compute error for each match and add it to the sum.
+            for match in matches:
+                error_sum += 1 - match[2]
+                
+            ############# Multi Object Tracking Accuracy (MOTA) #############
+            
+            # TODO: Implement!
 
     print("Mean average precision: {0}".format(average_precision_sum / num_frames))
-            
+    print("Multi Object Tracking Accuracy (MOTA): {0}".format(MOTP_error_sum / MOTP_matches_sum))        
+    print("Multi Object Tracking Precision (MOTP): {0}".format(1 - ((MOTA_false_negatives_sum + MOTA_false_positives_sum + MOTA_id_switches_sum) / MOTA_groundtruths_sum)))
+    
 print("Evaluation finished!")
