@@ -103,6 +103,13 @@ def mean_average_precision(groundtruth_boxes, result_boxes):
     
     return prec_sum / 11
         
+def get_gt_id_index(correspondences, gt_id):
+    for c_index, c in enumerate(correspondences):
+        if c[0] == gt_id: return c_index
+    
+    return None
+
+  
 MODE = "tracking"
 DETECTOR_TYPE = "original"
 
@@ -164,6 +171,7 @@ for dataset_folder in os.listdir(MAIN_FOLDER):
     MOTA_false_positives_sum = 0
     MOTA_id_switches_sum = 0
     MOTA_groundtruths_sum = groundtruths.shape[0]
+    MOTA_correspondences = []
     
     for frame_index in range(1, num_frames + 1):
         
@@ -186,23 +194,56 @@ for dataset_folder in os.listdir(MAIN_FOLDER):
             track_boxes = tracks[tracks[:, 0] == frame_index, 1:]   
   
             # Compute correspondences of groundtruth bounding boxes to track bounding boxes. Include iou of each match for MOTP computation.
-            matches, unmatched_groundtruths, unmatched_results = associate_detections_to_trackers(groundtruth_boxes, track_boxes[:, 1:], 'iou', CORRESPONDENCE_IOU_THRESHOLD, True)
+            matches, unmatched_groundtruths, unmatched_tracks = associate_detections_to_trackers(groundtruth_boxes, track_boxes[:, 1:], 'iou', CORRESPONDENCE_IOU_THRESHOLD, True)
     
             ############# Multi Object Tracking Precision (MOTP) #############
                 
-            # Get number of matches and add it to the sum.
-            matches_sum += matches.shape[0]
+            # Determine number of matches and add it to the sum.
+            MOTP_matches_sum += matches.shape[0]
         
             # Compute error for each match and add it to the sum.
             for match in matches:
-                error_sum += 1 - match[2]
+                MOTP_error_sum += 1 - match[2]
                 
             ############# Multi Object Tracking Accuracy (MOTA) #############
             
-            # TODO: Implement!
+            # Determine number of false negatives and add it to the sum.
+            MOTA_false_negatives_sum += unmatched_groundtruths.shape[0]
+            
+            # Determine number of false positives and add it to the sum.
+            MOTA_false_positives_sum += unmatched_tracks.shape[0]
+                        
+            # Determine number of id switches.
+            num_id_switches = 0
+            
+            for match in matches:
+                gt_id = match[0]
+                track_id = match[1]
+                
+                gt_id_index = get_gt_id_index(MOTA_correspondences, gt_id)
+                if gt_id_index == None:
+                    # Add match to correspondences.
+                    MOTA_correspondences.append(match[:2])
+                else:
+                    # Get correspondence with current groundtruth id.
+                    existing_correspondence = MOTA_correspondences[gt_id_index]
+                    
+                    # Check whether the groundtruth object is now tracked by a new tracker.
+                    if existing_correspondence[1] != track_id:
+                        # Increment id switch sum.
+                        num_id_switches += 1
+                        
+                        # Remove old correspondence.
+                        MOTA_correspondences.pop(gt_id_index)
+                        
+                        # Add match as new correspondence.
+                        MOTA_correspondences.append(match[:2])
+
+            # Add number of id switches to sum.
+            MOTA_id_switches_sum += num_id_switches
 
     print("Mean average precision: {0}".format(average_precision_sum / num_frames))
-    print("Multi Object Tracking Accuracy (MOTA): {0}".format(MOTP_error_sum / MOTP_matches_sum))        
-    print("Multi Object Tracking Precision (MOTP): {0}".format(1 - ((MOTA_false_negatives_sum + MOTA_false_positives_sum + MOTA_id_switches_sum) / MOTA_groundtruths_sum)))
+    print("Multi Object Tracking Accuracy (MOTP): {0}".format(MOTP_error_sum / MOTP_matches_sum))        
+    print("Multi Object Tracking Precision (MOTA): {0}".format(1 - ((MOTA_false_negatives_sum + MOTA_false_positives_sum + MOTA_id_switches_sum) / MOTA_groundtruths_sum)))
     
 print("Evaluation finished!")
