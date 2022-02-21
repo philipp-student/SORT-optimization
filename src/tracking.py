@@ -18,10 +18,7 @@ TRACKERS_COLOR = (0, 255, 0)
 
 FRAME_SOURCE = None
 
-OFFLINE_FRAME_DIRECTORY = r'D:\Philipp Student\HRW\Fahrassistenzsysteme 2\Seminararbeit\MOT15\test\AVG-TownCentre\img1'
-#OFFLINE_FRAME_DIRECTORY = r'D:\Philipp Student\HRW\Fahrassistenzsysteme 2\Seminararbeit\MOT15\test\ETH-Jelmoli\img1'
-#OFFLINE_FRAME_DIRECTORY = r'D:\Philipp Student\HRW\Fahrassistenzsysteme 2\Seminararbeit\MOT15\test\Venice-1\img1'
-#OFFLINE_FRAME_DIRECTORY = r'D:\Philipp Student\HRW\Fahrassistenzsysteme 2\Seminararbeit\MOT15\train\KITTI-17\img1'
+OFFLINE_FRAME_DIRECTORY = r'D:\Philipp Student\HRW\Repositories\fas-2-pietryga-student\mot_benchmark\train\ADL-Rundle-6\img1'
 
 HOST = 'localhost'
 PORT = 50007
@@ -34,31 +31,33 @@ OUTPUT_FILE_EXTENSION = ".txt"
 OUTPUT_FILE_PATH = os.path.join(OUTPUT_FILE_FOLDER, "{0}{1}".format(OUTPUT_FILE_NAME, OUTPUT_FILE_EXTENSION))
 
 # Converts normalized image coodinates to explicit image coordinates.
-def norm2img(xyxy, width, height):
-    return np.array([xyxy[0] * width, xyxy[1] * height, xyxy[2] * width, xyxy[3] * height])
+def norm2img(xyxy, width, height):    
+    new_x1 = xyxy[:, 0] * width
+    new_y1 = xyxy[:, 1] * height
+    new_x2 = xyxy[:, 2] * width
+    new_y2 = xyxy[:, 3] * height
+    
+    return np.concatenate([new_x1.reshape(-1, 1), new_y1.reshape(-1, 1), new_x2.reshape(-1, 1), new_y2.reshape(-1, 1)], axis=1)
 
 # Draws a bounding box on the given image.
-def draw_box(img, bounding_box_xyxy, color, thickness=2):        
-    # Plot rectangle in image.
-    return cv2.rectangle(img, (int(bounding_box_xyxy[0]), int(bounding_box_xyxy[1])), (int(bounding_box_xyxy[2]), int(bounding_box_xyxy[3])), color, thickness)
+def draw_boxes(img, bounding_boxes_xyxy, color, thickness=2):   
+    for b in bounding_boxes_xyxy:             
+        # Plot bounding box as rectangle in image.
+        img = cv2.rectangle(img, (int(b[0]), int(b[1])), (int(b[2]), int(b[3])), color, thickness)
+    
+    return img
 
 # Draws bounding boxes onto an image and displays it.
 def display_bounding_boxes(img, bounding_boxes, color, normalized=True):
     if bounding_boxes is None: return
     
-    # Draw each bounding box on image.
-    num_boxes = bounding_boxes.shape[0]
-    for i in range(num_boxes):        
-        # Get coordinates of bounding box.
-        bounding_box = bounding_boxes[i]
-        
-        # Compute explicit coordinates if they are normalized.
-        if normalized:
-            bounding_box = norm2img(bounding_box, img.shape[1], img.shape[0])
-        
-        # Plot bounding box.
-        img = draw_box(img, bounding_box, color)
-
+    # Compute absolute coordinates if they are normalized.
+    if normalized:
+        bounding_boxes = norm2img(bounding_boxes, img.shape[1], img.shape[0])
+    
+    # Draw bounding boxes onto image.
+    img = draw_boxes(img, bounding_boxes, color)
+    
     # Convert image to RGB.
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
@@ -78,7 +77,7 @@ def draw_bounding_boxes(img, bounding_boxes, color, normalized=True):
         
         # Compute explicit coordinates if they are normalized.
         if normalized:
-            bounding_box = norm2img(bounding_box, img.shape[1], img.shape[0])
+            bounding_box = norm2img(bounding_box.reshape(1, -1), img.shape[1], img.shape[0])
         
         # Draw bounding box onto image.
         img = draw_box(img, bounding_box, color)
@@ -170,7 +169,7 @@ def main():
     # Open output file for writing.
     with open(OUTPUT_FILE_PATH,'w') as output_file:    
         
-        while(total_frames < FRAME_SOURCE.num_frames):    
+        while total_frames < FRAME_SOURCE.num_frames:    
             
             try:
                 # Get frame from source.
@@ -188,7 +187,7 @@ def main():
                 ###########################
                 
                 # Display frame and detected pedestrians within.
-                if (DISPLAY_DETECTIONS):
+                if DISPLAY_DETECTIONS:
                     display_bounding_boxes(camera_frame.frame, detections, DETECTIONS_COLOR)
                 
                 ######## TRACKING ########                
@@ -206,11 +205,18 @@ def main():
                 total_frames += 1
                 
                 # Write updated tracker states into output file if desired.
-                if (SAVE_TRACKS):
-                    write_trackers(output_file, trackers, camera_frame.frame_index)
+                if SAVE_TRACKS:                    
+                    # Get tracks as absolute coordinates.
+                    trackers_absolute = norm2img(trackers[:, 0:4], camera_frame.frame.shape[1], camera_frame.frame.shape[0])
+                    
+                    # Get ids of tracks.                                        
+                    ids = trackers[:, 4].reshape(-1, 1)
+                    
+                    # Write tracks into file.
+                    write_trackers(output_file, np.concatenate([trackers_absolute, ids], axis=1), camera_frame.frame_index + 1)
                 
                 # Display updated trackers if desired.
-                if (DISPLAY_TRACKS):                
+                if DISPLAY_TRACKS:
                     display_bounding_boxes(camera_frame.frame, trackers, TRACKERS_COLOR)
                 
             except KeyboardInterrupt:                
