@@ -103,7 +103,7 @@ for dataset_folder in os.listdir(MAIN_FOLDER):
     # Write custom detections file.
     with open(custom_groundtruth_file, 'w') as output_file:
         for gt in groundtruths:
-            print('%d,%.2f,%.2f,%.2f,%.2f' % (gt[0], gt[2], gt[3], gt[4], gt[5]), file=output_file)
+            print('%d,%d,%.2f,%.2f,%.2f,%.2f' % (gt[0], gt[1], gt[2], gt[3], gt[4], gt[5]), file=output_file)
 
     print("Average inference time on dataset {0}: {1} ms".format(dataset_name, (sum_inference_time / FRAME_SOURCE.num_frames) * 1000.0))
     print("Finished work for dataset {0}!".format(dataset_name))
