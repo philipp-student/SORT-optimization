@@ -177,16 +177,11 @@ def main():
                 if camera_frame is None: continue                        
                 
                 ######## DETECTION ########   
-                start_time_detection = time.time()
-                            
+
                 # Detect pedestrians in frame.
-                detections = DETECTOR.detect_pedestrians(camera_frame.frame)                
+                detections = DETECTOR.detect_pedestrians(camera_frame.frame)
                 
-                cycle_time_detection = time.time() - start_time_detection
-                total_time_detection += cycle_time_detection                
-                ###########################
-                
-                # Display frame and detected pedestrians within.
+                # Display frame and detected pedestrians within if desired.
                 if DISPLAY_DETECTIONS:
                     display_bounding_boxes(camera_frame.frame, detections, DETECTIONS_COLOR)
                 
@@ -226,24 +221,11 @@ def main():
     print(">>> Cleaning up...")
     FRAME_SOURCE.cleanup()
     
-    # Runtime analysis results for detection.
-    detection_fps = total_frames / total_time_detection
-    detection_mspf = (total_time_detection / total_frames) * 1000.0
-    print("Detection: %.3f seconds for %d frames (%.1f FPS | %.3f ms/frame)" % 
-          (total_time_detection, total_frames, detection_fps, detection_mspf))
-    
     # Runtime analysis results for tracking.
     tracking_fps = total_frames / total_time_tracking
     tracking_mspf = (total_time_tracking / total_frames) * 1000.0
-    print("Tracking: %.3f seconds for %d frames (%.1f FPS | %.3f ms/frame)" % 
+    print("Tracking took %.3f seconds for %d frames (%.1f FPS | %.3f ms/frame)" % 
           (total_time_tracking, total_frames, tracking_fps, tracking_mspf))
-
-    # Runtime analysis results for both combined.
-    total_time_combined = total_time_detection + total_time_tracking
-    combined_fps = total_frames / total_time_combined
-    combined_mspf = (total_time_combined / total_frames) * 1000.0      
-    print("Combined: %.3f seconds for %d frames (%.1f FPS | %.3f ms/frame)" % 
-          (total_time_combined, total_frames, combined_fps, combined_mspf))
     
 if __name__ == "__main__":    
     main()

@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import time
 
 PERSON_DETECTION_ID = 0
 

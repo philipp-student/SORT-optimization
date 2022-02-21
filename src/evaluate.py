@@ -109,7 +109,6 @@ def get_gt_id_index(correspondences, gt_id):
     
     return None
 
-  
 MODE = "tracking"
 DETECTOR_TYPE = "original"
 
@@ -165,8 +164,7 @@ for dataset_folder in os.listdir(MAIN_FOLDER):
     
     # Helpers for tracking evaluation.
     MOTP_matches_sum = 0
-    MOTP_error_sum = 0
-    
+    MOTP_error_sum = 0    
     MOTA_false_negatives_sum = 0
     MOTA_false_positives_sum = 0
     MOTA_id_switches_sum = 0

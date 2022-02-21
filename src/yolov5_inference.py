@@ -64,7 +64,9 @@ for dataset_folder in os.listdir(MAIN_FOLDER):
             sum_inference_time += inference_time
             
             # Convert detection coordinates.
-            detections = convert_to_absolute(img.frame.shape[1], img.frame.shape[0], detections)
+            detection_confidences = detections[:, 4].reshape(-1, 1)
+            detections = norm2img(detections[:, :4], img.frame.shape[1], img.frame.shape[0])
+            detections = np.concatenate([detections, detection_confidences], axis=1)
             
             # Write detections into file.
             for d in detections:
