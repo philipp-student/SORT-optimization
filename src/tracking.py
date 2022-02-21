@@ -1,11 +1,6 @@
-import socket, pickle
-from PIL import Image
 import numpy as np
 from carla_camera_frame import CARLACameraFrame
-import struct
-import queue
 from frame_source import ServerFrameSource, DirectoryFrameSource
-from detector import YOLOv5
 import cv2
 import time
 import os
@@ -168,17 +163,17 @@ def main():
         DETECTIONS = np.loadtxt(DETECTIONS_FILE, delimiter=',')
         
         # Initialize frame source.
-        print(">>> Initializing frame source...")
+        print(">>> Loading images...")
         FRAME_SOURCE = DirectoryFrameSource(DATASET_IMAGES_FOLDER)
         
         # Create instance of SORT tracker.
-        print(">>> Initializing SORT tracker...")
+        print(">>> Creating SORT tracker...")
         mot_tracker = Sort(max_age=MAX_AGE, 
                         min_hits=MIN_HITS,
                         cost_type=COST_TYPE,
                         cost_threshold=COST_THRESHOLD)
         
-        print(">>> Initialization finished! Tracking begins...")
+        print(">>> Tracking begins...")
         
         # Initialize runtime analysis.
         total_time_tracking = 0.0
