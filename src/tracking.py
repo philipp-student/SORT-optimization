@@ -232,7 +232,7 @@ def main():
         # Cleanup.
         FRAME_SOURCE.cleanup()
         cv2.destroyAllWindows()
-        
+
         # Runtime analysis for tracking.
         tracking_fps = total_frames / total_time_tracking
         tracking_mspf = (total_time_tracking / total_frames) * 1000.0

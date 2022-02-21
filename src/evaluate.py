@@ -145,7 +145,7 @@ for dataset_folder in os.listdir(MAIN_FOLDER):
     yolo_detections_file = os.path.join(DETECTIONS_FOLDER, "det_YOLOv5.txt")
 
     # Tracks file.
-    tracks_file = os.path.join(TRACKS_FOLDER, "tracks.txt")
+    tracks_file = os.path.join(TRACKS_FOLDER, "tracking_iou_yolov5s.txt")
     
     ############ Load data ############
     
@@ -189,10 +189,10 @@ for dataset_folder in os.listdir(MAIN_FOLDER):
             
         elif MODE == 'tracking':    
             # Get all tracks of current frame.            
-            track_boxes = tracks[tracks[:, 0] == frame_index, 1:]   
+            track_boxes = tracks[tracks[:, 0] == frame_index, 1:]
   
             # Compute correspondences of groundtruth bounding boxes to track bounding boxes. Include iou of each match for MOTP computation.
-            matches, unmatched_groundtruths, unmatched_tracks = associate_detections_to_trackers(groundtruth_boxes, track_boxes[:, 1:], 'iou', CORRESPONDENCE_IOU_THRESHOLD, True)
+            matches, unmatched_groundtruths, unmatched_tracks = associate_detections_to_trackers(groundtruth_boxes[:, 1:], track_boxes[:, 1:], 'iou', CORRESPONDENCE_IOU_THRESHOLD, True)
     
             ############# Multi Object Tracking Precision (MOTP) #############
                 
@@ -215,13 +215,13 @@ for dataset_folder in os.listdir(MAIN_FOLDER):
             num_id_switches = 0
             
             for match in matches:
-                gt_id = match[0]
-                track_id = match[1]
+                gt_id = groundtruth_boxes[int(match[0]), 0]
+                track_id = track_boxes[int(match[1]), 0]
                 
                 gt_id_index = get_gt_id_index(MOTA_correspondences, gt_id)
                 if gt_id_index == None:
                     # Add match to correspondences.
-                    MOTA_correspondences.append(match[:2])
+                    MOTA_correspondences.append(np.array([gt_id, track_id]))
                 else:
                     # Get correspondence with current groundtruth id.
                     existing_correspondence = MOTA_correspondences[gt_id_index]
@@ -235,13 +235,17 @@ for dataset_folder in os.listdir(MAIN_FOLDER):
                         MOTA_correspondences.pop(gt_id_index)
                         
                         # Add match as new correspondence.
-                        MOTA_correspondences.append(match[:2])
+                        MOTA_correspondences.append(np.array([gt_id, track_id]))
 
             # Add number of id switches to sum.
             MOTA_id_switches_sum += num_id_switches
 
-    print("Mean average precision: {0}".format(average_precision_sum / num_frames))
-    print("Multi Object Tracking Accuracy (MOTP): {0}".format(MOTP_error_sum / MOTP_matches_sum))        
-    print("Multi Object Tracking Precision (MOTA): {0}".format(1 - ((MOTA_false_negatives_sum + MOTA_false_positives_sum + MOTA_id_switches_sum) / MOTA_groundtruths_sum)))
+    # Print evaluation results.
+    if MODE == 'detection':        
+        print("Mean average precision: {0}".format(average_precision_sum / num_frames))
+    elif MODE == 'tracking':
+        print("Multi Object Tracking Accuracy (MOTA): {0} (m: {1}, fp: {2}, mme: {3}, gt: {4})".format(1 - ((MOTA_false_negatives_sum + MOTA_false_positives_sum + MOTA_id_switches_sum) / MOTA_groundtruths_sum), 
+              MOTA_false_negatives_sum, MOTA_false_positives_sum, MOTA_id_switches_sum, MOTA_groundtruths_sum))
+        print("Multi Object Tracking Precision (MOTP): {0} (d: {1}, c: {2})".format(MOTP_error_sum / MOTP_matches_sum, MOTP_error_sum, MOTP_matches_sum))
     
 print("Evaluation finished!")
