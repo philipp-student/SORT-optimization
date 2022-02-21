@@ -15,9 +15,14 @@ class YOLOv5(Detector):
         self.model_type = model_type
         self.model = torch.hub.load('ultralytics/yolov5', self.model_type, pretrained=True)
         
-    def detect_pedestrians(self, img, include_confidence=False):
+    def detect_pedestrians(self, img, include_confidence=False, measure_inference_time=False):
         # Inference.
-        results = self.model(img)
+        if measure_inference_time:
+            start_time = time.time()            
+            results = self.model(img)
+            inference_time = time.time() - start_time
+        else:
+            results = self.model(img)
         
         # Get object bounding box info from results.
         results = results.xyxyn[0]
@@ -43,7 +48,10 @@ class YOLOv5(Detector):
                 detected_pedestrians[i, :] = results[i, :5]
             else:
                 detected_pedestrians[i, :] = results[i, :4]
-                
-        # Return detected pedestrians.
-        return detected_pedestrians
+
+        # Return detected pedestrians and inference time if desired.
+        if measure_inference_time:
+            return (detected_pedestrians, inference_time)
+        else:
+            return detected_pedestrians
         

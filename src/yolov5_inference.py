@@ -3,6 +3,7 @@ from detector import YOLOv5
 from tracking import norm2img, display_bounding_boxes
 import numpy as np
 import os
+import time
 
 def convert_to_absolute(width, height, bounding_boxes):            
     for b_index, b in enumerate(bounding_boxes):
@@ -46,6 +47,8 @@ for dataset_folder in os.listdir(MAIN_FOLDER):
 
     ######### Detections with YOLOv5 #########
     
+    sum_inference_time = 0
+    
     # Inference on YOLOv5.
     num_frames = 0
     with open(output_yolov5,'w') as output_file:    
@@ -54,8 +57,11 @@ for dataset_folder in os.listdir(MAIN_FOLDER):
             img = FRAME_SOURCE.get_frame()        
             
             # Inference.
-            detections = YOLO_DETECTOR.detect_pedestrians(img.frame, True)
+            detections, inference_time = YOLO_DETECTOR.detect_pedestrians(img.frame, True, True)
             detections = detections.numpy()
+            
+            # Add inference time to inference time sum.
+            sum_inference_time += inference_time
             
             # Convert detection coordinates.
             detections = convert_to_absolute(img.frame.shape[1], img.frame.shape[0], detections)
@@ -97,6 +103,7 @@ for dataset_folder in os.listdir(MAIN_FOLDER):
         for gt in groundtruths:
             print('%d,%.2f,%.2f,%.2f,%.2f' % (gt[0], gt[2], gt[3], gt[4], gt[5]), file=output_file)
 
-    print("Finished work for dataset %s!" % dataset_name)
+    print("Average inference time on dataset {0}: {1} ms".format(dataset_name, (sum_inference_time / FRAME_SOURCE.num_frames) * 1000.0))
+    print("Finished work for dataset {0}!".format(dataset_name))
 
 print("Finished all the work!")
