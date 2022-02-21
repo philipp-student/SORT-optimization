@@ -16,19 +16,8 @@ import time
 DETECTIONS_COLOR = (255, 0, 0)
 TRACKERS_COLOR = (0, 255, 0)
 
-FRAME_SOURCE = None
-
-OFFLINE_FRAME_DIRECTORY = r'D:\Philipp Student\HRW\Repositories\fas-2-pietryga-student\mot_benchmark\train\ADL-Rundle-6\img1'
-
-HOST = 'localhost'
-PORT = 50007
-
-DETECTOR = None
-
-OUTPUT_FILE_NAME = 'test_outputs'
-OUTPUT_FILE_FOLDER = r'D:\Philipp Student\HRW\Repositories\fas-2-pietryga-student\output'
-OUTPUT_FILE_EXTENSION = ".txt"
-OUTPUT_FILE_PATH = os.path.join(OUTPUT_FILE_FOLDER, "{0}{1}".format(OUTPUT_FILE_NAME, OUTPUT_FILE_EXTENSION))
+# Main folder with all datasets.
+MAIN_FOLDER = r"D:\Philipp Student\HRW\Fahrassistenzsysteme 2\Seminararbeit\MOT15\train"
 
 # Converts normalized image coodinates to explicit image coordinates.
 def norm2img(xyxy, width, height):    
@@ -102,8 +91,6 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Tracking')
     
     # Add arguments and descriptions.
-    parser.add_argument('--mode', dest='mode', help='Operating mode. "online" if CARLA images should be used. "offline" if an offline dataset should be used.', 
-                        type=str, default='offline')
     parser.add_argument('--display_tracks', dest='display_tracks', help='Whether the tracks should be displayed.',action='store_true')
     parser.add_argument('--display_detections', dest='display_detections', help='Whether the detections should be displayed.',action='store_true')
     parser.add_argument("--max_age", 
@@ -115,8 +102,10 @@ def parse_args():
     parser.add_argument("--cost_type", help="Type of cost for match.", type=str, default='iou')
     parser.add_argument("--cost_threshold", help="Minimum cost for match.", type=float, default=0.3)
     parser.add_argument("--save_tracks", help="Whether the tracks should be saved.", action='store_true')
-    parser.add_argument('--detector_type', dest='detector_type', help='Type of YOLO detector that should be used.', 
+    parser.add_argument('--detector_type', dest='detector_type', help='Type of detector that should be used.', 
                         type=str, default='yolov5s')
+    parser.add_argument('--output_file_name', dest='output_file_name', help='Name of the output file in which the tracks should be saved to if specified.', 
+                        type=str, default='tracks')
     
     # Parse given arguments and return results.
     return parser.parse_args()
@@ -127,7 +116,6 @@ def main():
     args = parse_args()
     
     # Set properties of tracking process.    
-    MODE = args.mode                                # Tracking mode
     DISPLAY_DETECTIONS = args.display_detections    # Whether detections should be displayed.
     DISPLAY_TRACKS = args.display_tracks            # Whether tracks should be displayed.
     MAX_AGE = args.max_age                          # Maximum age of a track without getting detections.
@@ -135,99 +123,124 @@ def main():
     COST_TYPE = args.cost_type                      # Cost type for association.
     COST_THRESHOLD = args.cost_threshold            # Cost threshold for association.
     SAVE_TRACKS = args.save_tracks                  # Whether the tracks should be saved in a file.
-    DETECTOR_TYPE = args.detector_type              # Type of YOLO detector.
+    DETECTOR_TYPE = args.detector_type              # Type of detector.
+    OUTPUT_FILE_NAME = args.output_file_name        # Name of output file in which the tracks are saved.
     
-    # Initialize time recording.
-    total_time_detection = 0.0
-    total_time_tracking = 0.0
-    total_frames = 0
-    
-    print(">>> Initializing detector...")
-    # Initialize detector.
-    DETECTOR = YOLOv5(DETECTOR_TYPE)
-    
-    print(">>> Initializing frame source...")
-    # Initialize frame source.
-    if MODE == 'online':
-        FRAME_SOURCE = ServerFrameSource(HOST, PORT)
-    elif MODE == 'offline':
-        FRAME_SOURCE = DirectoryFrameSource(OFFLINE_FRAME_DIRECTORY)
-    else:
-        print("Error: Unknown Mode")
-        exit()
-    
-    print(">>> Initializing SORT tracker...")
-    # Create instance of SORT tracker.
-    mot_tracker = Sort(max_age=MAX_AGE, 
-                       min_hits=MIN_HITS,
-                       cost_type=COST_TYPE,
-                       cost_threshold=COST_THRESHOLD)
-    
-    print(">>> Initialization finished!")    
-    print(">>> Tracking begins. Press Ctrl+C to stop the tracking.")
+    # Iterate over all datasets.
+    for dataset_folder in os.listdir(MAIN_FOLDER):
         
-    # Open output file for writing.
-    with open(OUTPUT_FILE_PATH,'w') as output_file:    
-        
-        while total_frames < FRAME_SOURCE.num_frames:    
-            
-            try:
-                # Get frame from source.
-                camera_frame = FRAME_SOURCE.get_frame()
-                if camera_frame is None: continue                        
-                
-                ######## DETECTION ########   
+        # Dataset main folder.
+        DATASET_MAIN_FOLDER = os.path.join(MAIN_FOLDER, dataset_folder)
 
-                # Detect pedestrians in frame.
-                detections = DETECTOR.detect_pedestrians(camera_frame.frame)
+        # Dataset images folder.
+        DATASET_IMAGES_FOLDER = os.path.join(DATASET_MAIN_FOLDER, "img1")
+        
+        # Dataset detections folder.
+        DETECTIONS_FOLDER = os.path.join(DATASET_MAIN_FOLDER, "det")
+        
+        # Tracks folder.
+        TRACKS_FOLDER = os.path.join(DATASET_MAIN_FOLDER, "tracks")
+
+        # Create tracks folder if it does not exist yet.
+        if not os.path.exists(TRACKS_FOLDER):
+            os.mkdir(TRACKS_FOLDER)
+
+        # Tracks output file.
+        OUTPUT_FILE = os.path.join(TRACKS_FOLDER, OUTPUT_FILE_NAME) + ".txt"
                 
-                # Display frame and detected pedestrians within if desired.
-                if DISPLAY_DETECTIONS:
-                    display_bounding_boxes(camera_frame.frame, detections, DETECTIONS_COLOR)
-                
-                ######## TRACKING ########                
-                start_time_tracking = time.time()
-                
-                # Update trackers with detections and retrieve new trackers.
-                # Format of returned tracker: [x1, y1, x2, y2, id].
-                trackers = mot_tracker.update(detections)
-                                
-                cycle_time_tracking = time.time() - start_time_tracking
-                total_time_tracking += cycle_time_tracking                
-                ##########################
-                
-                # Increment frame count.
-                total_frames += 1
-                
-                # Write updated tracker states into output file if desired.
-                if SAVE_TRACKS:                    
-                    # Get tracks as absolute coordinates.
-                    trackers_absolute = norm2img(trackers[:, 0:4], camera_frame.frame.shape[1], camera_frame.frame.shape[0])
-                    
-                    # Get ids of tracks.                                        
-                    ids = trackers[:, 4].reshape(-1, 1)
-                    
-                    # Write tracks into file.
-                    write_trackers(output_file, np.concatenate([trackers_absolute, ids], axis=1), camera_frame.frame_index + 1)
-                
-                # Display updated trackers if desired.
-                if DISPLAY_TRACKS:
-                    display_bounding_boxes(camera_frame.frame, trackers, TRACKERS_COLOR)
-                
-            except KeyboardInterrupt:                
-                break
+        # Name of dataset.
+        DATASET_NAME = dataset_folder
+        
+        # Print dataset name.
+        print("######################## {0} ########################".format(DATASET_NAME))
+        
+        # Detections file.
+        if DETECTOR_TYPE == 'original':
+            DETECTIONS_FILE = os.path.join(DETECTIONS_FOLDER, "det_custom.txt")
+        elif DETECTOR_TYPE == 'yolov5s':
+            DETECTIONS_FILE = os.path.join(DETECTIONS_FOLDER, "det_YOLOv5.txt")
+        else:
+            print('Invalid detector type {0}'.format(DETECTOR_TYPE))
+            return
+        
+        # Load detections.
+        print(">>> Loading detections...")
+        DETECTIONS = np.loadtxt(DETECTIONS_FILE, delimiter=',')
+        
+        # Initialize frame source.
+        print(">>> Initializing frame source...")
+        FRAME_SOURCE = DirectoryFrameSource(DATASET_IMAGES_FOLDER)
+        
+        # Create instance of SORT tracker.
+        print(">>> Initializing SORT tracker...")
+        mot_tracker = Sort(max_age=MAX_AGE, 
+                        min_hits=MIN_HITS,
+                        cost_type=COST_TYPE,
+                        cost_threshold=COST_THRESHOLD)
+        
+        print(">>> Initialization finished! Tracking begins...")
+        
+        # Initialize runtime analysis.
+        total_time_tracking = 0.0
+        total_frames = 0
+        
+        # Open output file for writing.
+        with open(OUTPUT_FILE,'w') as output_file:    
             
-    # Clean up.
-    print(">>> Cleaning up...")
-    FRAME_SOURCE.cleanup()
-    
-    # Runtime analysis results for tracking.
-    tracking_fps = total_frames / total_time_tracking
-    tracking_mspf = (total_time_tracking / total_frames) * 1000.0
-    print("Tracking took %.3f seconds for %d frames (%.1f FPS | %.3f ms/frame)" % 
-          (total_time_tracking, total_frames, tracking_fps, tracking_mspf))
+            while total_frames < FRAME_SOURCE.num_frames:    
+                
+                try:
+                    # Get frame from source.
+                    camera_frame = FRAME_SOURCE.get_frame()
+                    if camera_frame is None: continue                        
+                    
+                    ######## DETECTION ########   
+
+                    # Get detections of current frame.
+                    detections = DETECTIONS[DETECTIONS[:, 0] == (camera_frame.frame_index + 1), 1:5]
+                    
+                    # Display frame and detected pedestrians within if desired.
+                    if DISPLAY_DETECTIONS:
+                        display_bounding_boxes(camera_frame.frame, detections, DETECTIONS_COLOR, False)
+                    
+                    ######## TRACKING ########                
+                    start_time_tracking = time.time()
+                    
+                    # Update trackers with detections and retrieve new trackers.
+                    # Format of returned tracker: [x1, y1, x2, y2, id].
+                    trackers = mot_tracker.update(detections)
+                                    
+                    cycle_time_tracking = time.time() - start_time_tracking
+                    total_time_tracking += cycle_time_tracking                
+                    ##########################
+                    
+                    # Increment frame count.
+                    total_frames += 1
+                    
+                    # Write updated tracker states into output file if desired.
+                    if SAVE_TRACKS:                    
+                        # Write tracks into file.
+                        write_trackers(output_file, trackers, camera_frame.frame_index + 1)
+                    
+                    # Display updated trackers if desired.
+                    if DISPLAY_TRACKS:
+                        display_bounding_boxes(camera_frame.frame, trackers, TRACKERS_COLOR, False)
+                    
+                except KeyboardInterrupt:                
+                    break
+                
+        # Cleanup.
+        FRAME_SOURCE.cleanup()
+        cv2.destroyAllWindows()
+        
+        # Runtime analysis for tracking.
+        tracking_fps = total_frames / total_time_tracking
+        tracking_mspf = (total_time_tracking / total_frames) * 1000.0
+        print(">>> Tracking took %.3f seconds for %d frames (%.1f FPS | %.3f ms/frame)" % 
+            (total_time_tracking, total_frames, tracking_fps, tracking_mspf))
     
 if __name__ == "__main__":    
     main()
     
+    print("############################################################")
     print(">>> Tracking stopped.")
