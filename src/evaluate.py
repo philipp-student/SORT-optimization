@@ -4,7 +4,7 @@ from sort import associate_detections_to_trackers
 from tracking import draw_bounding_boxes
 from PIL import Image
 import cv2
-from helpers import xywh2xyxy
+from helpers import xywh2xyxy, DATA_DIRECTORY
 
 CORRESPONDENCE_IOU_THRESHOLD = 0.5
 RECALL_INTERPOLATION_VALUES = np.array([0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1])
@@ -114,15 +114,12 @@ def get_gt_id_index(correspondences, gt_id):
 MODE = "tracking"
 DETECTOR_TYPE = "yolov5"
 
-# Main folder with all datasets.
-MAIN_FOLDER = r"D:\Philipp Student\HRW\Fahrassistenzsysteme 2\Seminararbeit\MOT15\train"
-
-for dataset_folder in os.listdir(MAIN_FOLDER):
+for dataset_folder in os.listdir(helpers.DATA_DIRECTORY):
     
     ############ Determine paths ############
     
     # Dataset main folder.
-    DATASET_MAIN_FOLDER = os.path.join(MAIN_FOLDER, dataset_folder)
+    DATASET_MAIN_FOLDER = os.path.join(helpers.DATA_DIRECTORY, dataset_folder)
     
     # Detections folder.
     DETECTIONS_FOLDER = os.path.join(DATASET_MAIN_FOLDER, "det")

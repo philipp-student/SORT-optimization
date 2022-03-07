@@ -1,5 +1,7 @@
 import numpy as np
 
+DATA_DIRECTORY = "./data"
+
 def xywh2xyxy(bbox_xywh):
     x_center = bbox_xywh[:, 0]
     y_center = bbox_xywh[:, 1]

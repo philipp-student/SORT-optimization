@@ -1,7 +1,7 @@
 from PIL import Image
 import numpy as np
 
-class CARLACameraFrame:
+class CameraFrame:
 
     def __init__(self, frame, frame_index):
 
@@ -19,4 +19,4 @@ class CARLACameraFrame:
         img = np.array(Image.open(image_path))
         
         # Create frame and return it.
-        return CARLACameraFrame(img, frame_index)
+        return CameraFrame(img, frame_index)

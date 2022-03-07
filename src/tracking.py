@@ -1,5 +1,5 @@
 import numpy as np
-from carla_camera_frame import CARLACameraFrame
+from camera_frame import CameraFrame
 from frame_source import ServerFrameSource, DirectoryFrameSource
 import cv2
 import time
@@ -7,12 +7,10 @@ import os
 import argparse
 from sort import Sort
 import time
+import helpers
 
 DETECTIONS_COLOR = (255, 0, 0)
 TRACKERS_COLOR = (0, 255, 0)
-
-# Main folder with all datasets.
-MAIN_FOLDER = r"D:\Philipp Student\HRW\Fahrassistenzsysteme 2\Seminararbeit\MOT15\train"
 
 # Converts normalized image coodinates to explicit image coordinates.
 def norm2img(xyxy, width, height):    
@@ -122,10 +120,10 @@ def main():
     OUTPUT_FILE_NAME = args.output_file_name        # Name of output file in which the tracks are saved.
     
     # Iterate over all datasets.
-    for dataset_folder in os.listdir(MAIN_FOLDER):
+    for dataset_folder in os.listdir(helpers.DATA_DIRECTORY):
         
         # Dataset main folder.
-        DATASET_MAIN_FOLDER = os.path.join(MAIN_FOLDER, dataset_folder)
+        DATASET_MAIN_FOLDER = os.path.join(helpers.DATA_DIRECTORY, dataset_folder)
 
         # Dataset images folder.
         DATASET_IMAGES_FOLDER = os.path.join(DATASET_MAIN_FOLDER, "img1")

@@ -4,22 +4,20 @@ from tracking import norm2img, display_bounding_boxes
 import numpy as np
 import os
 import time
+import helpers
 
 def convert_to_absolute(width, height, bounding_boxes):            
     for b_index, b in enumerate(bounding_boxes):
         bounding_boxes[b_index, :4] = norm2img(b, width, height)
     return bounding_boxes
 
-# Main folder with all datasets.
-MAIN_FOLDER = r"D:\Philipp Student\HRW\Fahrassistenzsysteme 2\Seminararbeit\MOT15\train"
-
 # Initialize YOLOv5 detector.
 YOLO_DETECTOR = YOLOv5("yolov5s")
 
-for dataset_folder in os.listdir(MAIN_FOLDER):
+for dataset_folder in os.listdir(helpers.DATA_DIRECTORY):
     
     # Dataset main folder.
-    DATASET_MAIN_FOLDER = os.path.join(MAIN_FOLDER, dataset_folder)
+    DATASET_MAIN_FOLDER = os.path.join(helpers.DATA_DIRECTORY, dataset_folder)
 
     # Dataset images folder.
     OFFLINE_FRAME_DIRECTORY = os.path.join(DATASET_MAIN_FOLDER, "img1")

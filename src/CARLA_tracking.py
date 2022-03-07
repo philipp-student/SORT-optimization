@@ -12,13 +12,14 @@ import os
 import argparse
 from sort import Sort
 import time
+import helpers
 
 DETECTIONS_COLOR = (255, 0, 0)
 TRACKERS_COLOR = (0, 255, 0)
 
 FRAME_SOURCE = None
 
-OFFLINE_FRAME_DIRECTORY = r'D:\Philipp Student\HRW\Repositories\fas-2-pietryga-student\mot_benchmark\train\ADL-Rundle-6\img1'
+OFFLINE_FRAME_DIRECTORY = os.path.join(helpers.DATA_DIRECTORY, "ADL-Rundle-6/img1")
 
 HOST = 'localhost'
 PORT = 50007
@@ -26,7 +27,7 @@ PORT = 50007
 DETECTOR = None
 
 OUTPUT_FILE_NAME = 'test_outputs'
-OUTPUT_FILE_FOLDER = r'D:\Philipp Student\HRW\Repositories\fas-2-pietryga-student\output'
+OUTPUT_FILE_FOLDER = os.path.join(helpers.DATA_DIRECTORY, "output")
 OUTPUT_FILE_EXTENSION = ".txt"
 OUTPUT_FILE_PATH = os.path.join(OUTPUT_FILE_FOLDER, "{0}{1}".format(OUTPUT_FILE_NAME, OUTPUT_FILE_EXTENSION))
 

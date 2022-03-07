@@ -36,7 +36,7 @@ import time
 
 import queue
 
-from carla_camera_frame import CARLACameraFrame
+from carla_camera_frame import CameraFrame
 
 from PIL import Image
 
@@ -253,7 +253,7 @@ def process_img(image):
 
     # Instantiate a frame object.
 
-    frame_object = CARLACameraFrame(frame, image.frame)
+    frame_object = CameraFrame(frame, image.frame)
     
 
     # Queue frame object.

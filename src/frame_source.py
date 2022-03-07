@@ -2,7 +2,7 @@ import queue
 from skimage import io
 import os
 import glob
-from carla_camera_frame import CARLACameraFrame
+from camera_frame import CameraFrame
 import socket
 import threading
 import struct
@@ -133,7 +133,7 @@ class DirectoryFrameSource(FrameSource):
         num_frames = 0
         for frame_file_index, frame_file_name in enumerate(frame_files):          
             # Load frame from file.  
-            frame = CARLACameraFrame.from_image(frame_file_name, frame_file_index)                        
+            frame = CameraFrame.from_image(frame_file_name, frame_file_index)                        
             
             # Add frame to queue.
             self.frame_queue.put(frame)                    
