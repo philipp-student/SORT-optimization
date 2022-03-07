@@ -104,7 +104,7 @@ def main():
             else:
                 synchronous_master = False
 
-        blueprints = world.get_blueprint_library().filter(args.filterv)
+        blueprints = world.get_blueprint_library()
         blueprintsWalkers = world.get_blueprint_library().filter(args.filterw)
         blueprints = sorted(blueprints, key=lambda bp: bp.id)
 
@@ -121,7 +121,7 @@ def main():
         # Spawn Walkers
         # -------------
         # some settings
-        percentagePedestriansRunning = 10.0      # how many pedestrians will run
+        percentagePedestriansRunning = 0.1      # how many pedestrians will run
         percentagePedestriansCrossing = 0.0     # how many pedestrians will walk through the road
         # 1. take all the random locations to spawn
         spawn_points = []
