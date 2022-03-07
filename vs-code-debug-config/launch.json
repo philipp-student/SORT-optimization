@@ -1,0 +1,117 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Tracking (IOU + Original)",
+            "type": "python",
+            "request": "launch",
+            "program": "./src/tracking.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--display_detections",
+                "--display_tracks",
+                "--max_age", "1",
+                "--min_hits", "3",
+                "--cost_type", "iou",
+                "--cost_threshold", "0.3",
+                "--save_tracks", 
+                "--detector_type", "original",
+                "--output_file_name", "tracking_iou_original"
+            ]
+        },
+        {
+            "name": "Tracking (F1 + Original)",
+            "type": "python",
+            "request": "launch",
+            "program": "./src/tracking.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--display_detections",
+                "--display_tracks",
+                "--max_age", "1",
+                "--min_hits", "3",
+                "--cost_type", "f1",
+                "--cost_threshold", "0.3",
+                "--save_tracks", 
+                "--detector_type", "original",
+                "--output_file_name", "tracking_f1_original"
+            ]
+        },
+        {
+            "name": "Tracking (IOU + YOLOv5s)",
+            "type": "python",
+            "request": "launch",
+            "program": "./src/tracking.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--display_detections",
+                "--display_tracks",
+                "--max_age", "1",
+                "--min_hits", "3",
+                "--cost_type", "iou",
+                "--cost_threshold", "0.3",
+                "--save_tracks", 
+                "--detector_type", "yolov5s",
+                "--output_file_name", "tracking_iou_yolov5s"
+            ]
+        },
+        {
+            "name": "Tracking (F1 + YOLOv5s)",
+            "type": "python",
+            "request": "launch",
+            "program": "./src/tracking.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--display_detections",
+                "--display_tracks",
+                "--max_age", "1",
+                "--min_hits", "3",
+                "--cost_type", "f1",
+                "--cost_threshold", "0.3",
+                "--save_tracks", 
+                "--detector_type", "yolov5s",
+                "--output_file_name", "tracking_f1_yolov5s"
+            ]
+        },
+        {
+            "name": "Realtime Tracking - CARLA",
+            "type": "python",
+            "request": "launch",
+            "program": "./src/realtime_tracking.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--mode", "online",
+                "--display_detections",
+                "--display_tracks",
+                "--max_age", "1",
+                "--min_hits", "3",
+                "--cost_type", "iou",
+                "--cost_threshold", "0.3",
+                "--detector_type", "yolov5s",
+                "--frame_source_host", "localhost",
+                "--frame_source_port", "50007"
+            ]
+        },
+        {
+            "name": "Realtime Tracking - Dataset",
+            "type": "python",
+            "request": "launch",
+            "program": "./src/realtime_tracking.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--mode", "offline",
+                "--display_detections",
+                "--display_tracks",
+                "--max_age", "1",
+                "--min_hits", "3",
+                "--cost_type", "iou",
+                "--cost_threshold", "0.3",
+                "--detector_type", "yolov5s",
+                "--dataset", "ADL-Rundle-6"
+            ]
+        }
+    ]
+}
