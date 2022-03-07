@@ -194,6 +194,9 @@ def main():
         ego_gnss = None
         ego_imu = None
 
+        # Load correct world.
+        world = client.load_world('/Game/Carla/Maps/Town07')
+
         # --------------
         # Spawn vehicle
         # --------------        

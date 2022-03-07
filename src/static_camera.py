@@ -196,6 +196,9 @@ def main():
         world = client.get_world()
         ego_cam = None
 
+        # Load correct world.
+        world = client.load_world('/Game/Carla/Maps/Town07')
+
         # --------------
         # Add a RGB camera
         # --------------        
