@@ -317,5 +317,5 @@ if __name__ == '__main__':
         FRAME_BROADCASTING_THREAD.join()
         CLIENT_HANDLING_THREAD.join()
     finally:
-        print('\nStopped camera script.')
+        print('Stopped camera script.')
 

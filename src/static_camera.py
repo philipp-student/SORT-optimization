@@ -268,4 +268,4 @@ if __name__ == '__main__':
         CLIENT_HANDLING_THREAD.join()
 
     finally:
-        print('\Stopped camera script.')
+        print('Stopped camera script.')
