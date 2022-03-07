@@ -127,6 +127,7 @@ def handle_client_connections():
 
             # Wait for a client to connect.
             client_info = SERVER_SOCKET.accept()
+            client_info[0].setblocking(True)
 
             print ('Client connected: ', client_info[1])
 
